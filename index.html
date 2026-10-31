@@ -530,7 +530,7 @@ const eventsOn = d => D.events.filter(e => e.start <= d && (e.end || e.start) >=
 
 /* ---------- Navigation & Rahmen ---------- */
 const VIEWS = [
-  ['heute', 'Heute', 'today'], ['kalender', 'Kalender', 'cal'], ['unterricht', 'Unterricht', 'plan'], ['schueler', 'Schüler', 'people'], ['kinder', 'Kinder', 'child'],
+  ['heute', 'Heute', 'today'], ['kalender', 'Kalender', 'cal'], ['unterricht', 'Unterricht', 'plan'], ['schueler', 'Schüler', 'people'], ['kinder', 'Leistungsprofil', 'child'],
   ['notizen', 'Notizen', 'note'], ['erinnerungen', 'Erinnerungen', 'bell'], ['drucken', 'Drucken', 'print'], ['einstellungen', 'Einstellungen', 'gear'],
 ];
 function renderSide() {
@@ -936,13 +936,13 @@ function childProfileHtml(ch, print) {
 }
 function vKinder() {
   const kids = allChildren();
-  if (!kids.length) return pageHead('Kinder') + `<div class="card empty">Noch keine Kinder eingetragen. Klassenlisten legst du unter „Schüler“ an.</div>`;
+  if (!kids.length) return pageHead('Leistungsprofil') + `<div class="card empty">Noch keine Kinder eingetragen. Klassenlisten legst du unter „Schüler“ an.</div>`;
   const q = (ui.kidQuery || '').toLowerCase();
   const fcls = ui.kidClass || '';
   const shown = kids.filter(k => (!q || (k.s.first + ' ' + k.s.last).toLowerCase().includes(q)) && (!fcls || k.recs.some(r => r.cls.id === fcls)));
   const cur = kids.find(k => k.key === ui.kidKey) || shown[0];
   ui.kidKey = cur?.key;
-  return pageHead('Kinder', `${kids.length} Kinder`, `<button class="btn sm" data-act="kid-print" ${cur ? '' : 'disabled'}>${icon('print')}Dieses Kind drucken</button>`) + `
+  return pageHead('Leistungsprofil', `${kids.length} Kinder`, `<button class="btn sm" data-act="kid-print" ${cur ? '' : 'disabled'}>${icon('print')}Dieses Kind drucken</button>`) + `
   <div class="plan"><div class="card" style="padding:8px;display:grid;gap:8px;align-content:start">
     <input type="text" id="kid-q" placeholder="Name suchen" value="${esc(ui.kidQuery || '')}" data-bind="kidQuery" aria-label="Name suchen">
     <select data-bind="kidClass" aria-label="Klasse"><option value="">Alle Klassen</option>${D.classes.filter(k => k.students.length).map(k => `<option value="${k.id}" ${k.id === fcls ? 'selected' : ''}>${esc(k.title)}</option>`).join('')}</select>
