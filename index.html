@@ -214,6 +214,18 @@ table.st td.cell{text-align:center;padding:3px;width:52px}
 .ov th.grp{text-align:center;border-left:1px solid var(--line)}
 .ov td.sum{font-size:.8rem;color:var(--muted);border-left:1px solid var(--line)}
 .sym{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:6px;font-size:.78rem;font-weight:700;padding:0 4px}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+.tile{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;background:var(--surface)}
+.tile .big{font-family:var(--font-display);font-size:1.45rem;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.2;margin:2px 0}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:14px;margin-top:14px}
+.chartbox{border:1px solid var(--line);border-radius:var(--r);padding:12px;min-width:0}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.78rem;color:var(--muted);margin:2px 0 6px}
+.lg{display:inline-flex;align-items:center;gap:5px}.lg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+table.detail td{white-space:normal;vertical-align:top;font-size:.86rem}
+table.detail td:first-child{width:1%;white-space:nowrap}table.detail td:nth-child(2){width:1%;white-space:nowrap;color:var(--muted);font-weight:600}
+table.detail .dt{display:inline-block;margin:1px 6px 1px 0;white-space:nowrap}
+@media (max-width:700px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media print{.tiles{grid-template-columns:repeat(4,1fr)}.charts{grid-template-columns:1fr}.chartbox,.tile{break-inside:avoid}}
 .kid-list{max-height:calc(100vh - 200px);overflow-y:auto}
 .kid-list .d{grid-template-columns:1fr auto}
 .prof h3{margin:0 0 6px}
@@ -830,39 +842,97 @@ function childCourses(ch) {
   ch.recs.forEach(({ cls, s }) => D.courses.filter(c => c.classId === cls.id).forEach(c => out.push({ c, s, cls })));
   return out;
 }
-function childProfileHtml(ch, print) {
-  const empty = [];
-  const parts = childCourses(ch).map(({ c, s }) => {
-    let h = '';
+const STYLE_COLOR = { good: 'var(--mint)', mid: 'var(--sonne)', bad: 'var(--koralle)', info: 'var(--blau)', lila: 'var(--lila)', grey: 'var(--grau)' };
+function childStats(ch) {
+  const grades = [], marks = [], att = { a: 0, e: 0, l: 0, list: [] }, empty = [];
+  childCourses(ch).forEach(({ c, s }) => {
+    let any = false;
     if (c.grades) {
       const g = c.grades; const tot = totalGrade(g, s.id);
-      const cats = g.categories.map(cat => {
-        const a = catAvg(g, cat, s.id);
-        const its = cat.items.map(it => g.values[it.id]?.[s.id] != null ? `${esc(it.title)}: <b>${fmtG(g.values[it.id][s.id])}</b>` : '').filter(Boolean);
-        return a == null ? '' : `<dt>${esc(cat.title)} <span class="sub">×${esc(cat.weight)}</span></dt><dd>Ø <b>${fmtG(a)}</b>${its.length ? ' · ' + its.join(', ') : ''}</dd>`;
-      }).join('');
-      h += `<div><div class="field-title">Noten</div>${tot == null ? '<div class="sub">Noch keine Noten</div>' : `<dl class="kv"><dt>Gesamt</dt><dd><span class="sym ${print ? '' : gradeCls(tot)}" style="min-width:38px">${fmtG(tot)}</span></dd>${cats}</dl>`}</div>`;
+      const cats = g.categories.map(cat => ({ title: cat.title, weight: cat.weight, avg: catAvg(g, cat, s.id), items: cat.items.map(it => ({ title: it.title, v: g.values[it.id]?.[s.id] })).filter(x => x.v != null) })).filter(x => x.avg != null);
+      if (tot != null) { grades.push({ c, tot, cats }); any = true; }
     }
-    const att = Object.keys(c.attendance).sort().filter(d => c.attendance[d][s.id]).map(d => `${dm(d)} ${ATT[c.attendance[d][s.id]][0]}`);
-    if (att.length) h += `<div><div class="field-title">Fehlstunden und Verspätungen</div><div>${att.join(' · ')}</div></div>`;
-    const cols = c.columns.map(col => {
-      const e = c.entries[col.id]?.[s.id] || {}; const ds = Object.keys(e).sort();
-      if (!ds.length) return '';
-      if (col.type === 'text') return `<dt>${esc(col.title)}</dt><dd>${ds.map(d => `${dm(d)} ${esc(e[d])}`).join('; ')}</dd>`;
+    Object.keys(c.attendance).sort().forEach(d => { const v = c.attendance[d][s.id]; if (v) { att[v]++; att.list.push({ d, v, c }); any = true; } });
+    c.columns.forEach(col => {
+      const e = c.entries[col.id]?.[s.id] || {}; const ds = Object.keys(e).sort(); if (!ds.length) return;
+      any = true;
+      if (col.type === 'text') { marks.push({ c, col, text: ds.map(d => ({ d, v: e[d] })) }); return; }
       const cnt = {}; ds.forEach(d => { const o = optOf(col, e[d]); if (o) cnt[o.id] = (cnt[o.id] || 0) + 1; });
-      const sum = col.options.filter(o => cnt[o.id]).map(o => `<span class="sym ${print ? '' : 'm-' + o.style}">${esc(o.symbol)}</span>&nbsp;${cnt[o.id]}×${o.label ? ' ' + esc(o.label) : ''}`).join(' &nbsp; ');
-      const list = ds.map(d => `${dm(d)}&nbsp;${esc(optOf(col, e[d])?.symbol || '')}`).join(', ');
-      return `<dt>${esc(col.title)}</dt><dd>${sum}<div class="sub" style="font-size:.8rem">${list}</div></dd>`;
-    }).join('');
-    if (cols) h += `<div><div class="field-title">Mitschrift</div><dl class="kv">${cols}</dl></div>`;
-    if (!h) { empty.push(cname(c)); return ''; }
-    return `<div class="sec"><h3><span class="chip c-${c.color}" style="cursor:default"><i></i>${esc(cname(c))}</span> ${esc(c.subject)}</h3><div style="display:grid;gap:10px">${h}</div></div>`;
-  }).join('') + (empty.length ? `<div class="sec sub">Ohne Einträge: ${empty.map(esc).join(', ')}</div>` : '');
-  const note = D.childNotes[ch.key] || '';
+      marks.push({ c, col, cnt, total: ds.length, list: ds.map(d => ({ d, o: optOf(col, e[d]) })) });
+    });
+    if (!any) empty.push(cname(c));
+  });
+  return { grades, marks, att, empty };
+}
+/* Grafik 1: Noten je Bereich auf der Skala 1–5 (links = besser) */
+function gradeChartSvg(grades) {
+  const rows = [];
+  grades.forEach(g => { rows.push({ head: true, label: cname(g.c), v: g.tot }); g.cats.forEach(cat => rows.push({ label: cat.title, v: cat.avg, n: cat.items.length })); });
+  const W = 520, L = 160, R = 40, top = 26, rh = 26, H = top + rows.length * rh + 6;
+  const x = v => L + (Math.min(5, Math.max(1, v)) - 1) / 4 * (W - L - R);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Noten je Bereich" style="max-width:${W}px;font-family:var(--font-body)">`;
+  for (let k = 1; k <= 5; k++) svg += `<line x1="${x(k)}" x2="${x(k)}" y1="${top - 6}" y2="${H - 4}" stroke="var(--line)" stroke-dasharray="${k === 1 || k === 5 ? '' : '3 3'}"/><text x="${x(k)}" y="${top - 12}" text-anchor="middle" font-size="11" fill="var(--muted)">${k}</text>`;
+  rows.forEach((r, i) => {
+    const y = top + i * rh + rh / 2;
+    if (r.head) svg += `<rect x="0" y="${y - rh / 2 + 2}" width="${W}" height="${rh - 4}" rx="6" fill="var(--soft)"/>`;
+    svg += `<text x="${r.head ? 8 : 18}" y="${y + 4}" font-size="${r.head ? 12.5 : 12}" font-weight="${r.head ? 700 : 400}" fill="var(--ink)">${esc(r.label.length > 24 ? r.label.slice(0, 23) + '…' : r.label)}</text>`;
+    svg += `<line x1="${x(1)}" x2="${x(r.v)}" y1="${y}" y2="${y}" stroke="${r.head ? 'var(--tuerkis-ink)' : 'var(--tuerkis)'}" stroke-width="2" stroke-linecap="round"/>`;
+    svg += `<circle cx="${x(r.v)}" cy="${y}" r="${r.head ? 7 : 5.5}" fill="${r.head ? 'var(--tuerkis-ink)' : 'var(--tuerkis)'}" stroke="var(--surface)" stroke-width="2"><title>${esc(r.label)}: ${fmtG(r.v)}${r.n ? ` (${r.n} Note${r.n > 1 ? 'n' : ''})` : ''}</title></circle>`;
+    svg += `<text x="${x(r.v) + 11}" y="${y + 4}" font-size="12" font-weight="${r.head ? 700 : 600}" fill="var(--ink)">${fmtG(r.v)}</text>`;
+  });
+  return svg + '</svg>';
+}
+/* Grafik 2: Mitschrift als gestapelte Balken (Anteile je Zeichen) */
+function markChartSvg(marks) {
+  const rows = marks.filter(m => m.cnt);
+  const W = 520, L = 160, R = 30, rh = 30, H = rows.length * rh + 4;
+  const max = Math.max(...rows.map(r => r.total), 1);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Mitschrift" style="max-width:${W}px;font-family:var(--font-body)">`;
+  rows.forEach((r, i) => {
+    const y = i * rh + 6, h = 16; let xx = L;
+    svg += `<text x="0" y="${y + 12}" font-size="12" fill="var(--ink)">${esc((r.col.title.length > 18 ? r.col.title.slice(0, 17) + '…' : r.col.title))}<tspan fill="var(--muted)" font-size="10.5"> ${esc(cname(r.c))}</tspan></text>`;
+    r.col.options.filter(o => r.cnt[o.id]).forEach(o => {
+      const w = Math.max(2, r.cnt[o.id] / max * (W - L - R) - 2);
+      svg += `<rect x="${xx}" y="${y}" width="${w}" height="${h}" rx="4" fill="${STYLE_COLOR[o.style] || 'var(--grau)'}"><title>${esc(r.col.title)}: ${r.cnt[o.id]}× ${esc(o.label || o.symbol)}</title></rect>`;
+      if (w > 22) svg += `<text x="${xx + w / 2}" y="${y + 12}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--ink)">${r.cnt[o.id]}</text>`;
+      xx += w + 2;
+    });
+    svg += `<text x="${xx + 4}" y="${y + 12}" font-size="11" fill="var(--muted)">${r.total}</text>`;
+  });
+  return svg + '</svg>';
+}
+function childProfileHtml(ch, print) {
+  const st = childStats(ch);
   const classes = [...new Set(ch.recs.map(r => r.cls.title))].join(', ');
-  return `<div class="prof"><div class="row" style="justify-content:space-between;align-items:end"><div><h2 style="font-size:1.35rem">${esc(ch.s.first)} ${esc(ch.s.last)}</h2><div class="sub">${esc(classes)} · ${esc(D.year.title)}</div></div>${print ? `<div class="sub">Stand ${dmy(todayIso())}</div>` : ''}</div>
-    ${parts || '<div class="sec sub">In keinem Kurs eingetragen.</div>'}
-    <div class="sec"><h3>Notizen zum Kind</h3>${print ? `<div style="white-space:pre-wrap">${esc(note) || '—'}</div><div style="margin-top:6mm;border-top:0.6pt solid #999;padding-top:2mm;font-size:9pt;color:#555">Notizen vom Elterngespräch:</div><div style="height:45mm"></div>` : `<textarea id="cn-${ch.key.replace(/\W/g, '_')}" style="min-height:140px" data-bind="childNote" data-k="${esc(ch.key)}" placeholder="z. B. Beobachtungen, Gesprächsnotizen vom Elternsprechtag …">${esc(note)}</textarea>`}</div></div>`;
+  const note = D.childNotes[ch.key] || '';
+  // Kennzahlen
+  const hue = st.marks.filter(m => m.cnt && /haus/i.test(m.col.title));
+  const sumOpt = (ms, re) => ms.reduce((n, m) => n + m.col.options.filter(o => re.test(o.label || '') || (!o.label && o.style === 'good')).reduce((k, o) => k + (m.cnt[o.id] || 0), 0), 0);
+  const hTot = hue.reduce((n, m) => n + m.total, 0), hOk = sumOpt(hue, /^(OK|Nachgereicht)$/i);
+  const mat = st.marks.filter(m => m.cnt && /material/i.test(m.col.title));
+  const mTot = mat.reduce((n, m) => n + m.total, 0), mOk = sumOpt(mat, /^OK$/i);
+  const tile = (label, value, sub, cls = '') => `<div class="tile"><div class="kicker">${label}</div><div class="big ${cls}">${value}</div><div class="sub">${sub}</div></div>`;
+  const tiles = [
+    st.grades.length ? tile('Noten', st.grades.map(g => `<span title="${esc(cname(g.c))}">${fmtG(g.tot)}</span>`).join(' · '), st.grades.map(g => esc(cname(g.c))).join(' · ')) : tile('Noten', '–', 'noch keine Noten'),
+    tile('Hausübungen', hTot ? `${Math.round(hOk / hTot * 100)} %` : '–', hTot ? `${hOk} von ${hTot} erledigt` : 'keine Einträge'),
+    tile('Material', mTot ? `${Math.round(mOk / mTot * 100)} %` : '–', mTot ? `${mOk} von ${mTot} dabei` : 'keine Einträge'),
+    tile('Fehlstunden', String(st.att.a + st.att.e), st.att.a + st.att.e ? `${st.att.e} entschuldigt${st.att.l ? ` · ${st.att.l}× spät` : ''}` : (st.att.l ? `${st.att.l}× spät` : 'keine')),
+  ].join('');
+  const legend = (() => { const seen = new Map(); st.marks.filter(m => m.cnt).forEach(m => m.col.options.forEach(o => { if (m.cnt[o.id]) seen.set((o.label || o.symbol) + o.style, o); })); return [...seen.values()].map(o => `<span class="lg"><i style="background:${STYLE_COLOR[o.style]}"></i>${esc(o.label || o.symbol)}</span>`).join(''); })();
+  const charts = (st.grades.length ? `<div class="chartbox"><h3>Noten je Bereich</h3><div class="sub" style="margin-bottom:4px">Skala 1–5, weiter links ist besser. Die Gesamtnote ist gewichtet.</div>${gradeChartSvg(st.grades)}</div>` : '')
+    + (st.marks.some(m => m.cnt) ? `<div class="chartbox"><h3>Mitschrift</h3><div class="legend">${legend}</div>${markChartSvg(st.marks)}</div>` : '');
+  // Details je Kurs
+  const detail = [];
+  st.grades.forEach(g => detail.push(`<tr><td><span class="chip c-${g.c.color}" style="cursor:default"><i></i>${esc(cname(g.c))}</span></td><td>Noten</td><td>${g.cats.map(cat => `<div><b>${esc(cat.title)}</b> Ø ${fmtG(cat.avg)}${cat.items.length ? ` <span class="sub">(${cat.items.map(it => `${esc(it.title)}: ${fmtG(it.v)}`).join(', ')})</span>` : ''}</div>`).join('')}</td></tr>`));
+  st.marks.forEach(m => detail.push(`<tr><td><span class="chip c-${m.c.color}" style="cursor:default"><i></i>${esc(cname(m.c))}</span></td><td>${esc(m.col.title)}</td><td>${m.text ? m.text.map(t => `${dm(t.d)} ${esc(t.v)}`).join('; ') : m.list.map(t => `<span class="dt">${dm(t.d)}&nbsp;<span class="sym ${print ? '' : 'm-' + (t.o?.style || 'grey')}">${esc(t.o?.symbol || '')}</span></span>`).join(' ')}</td></tr>`));
+  if (st.att.list.length) detail.push(`<tr><td></td><td>Fehlstunden</td><td>${st.att.list.map(a => `${dm(a.d)} ${esc(cname(a.c))}: ${ATT[a.v][0]}`).join(' · ')}</td></tr>`);
+  return `<div class="prof">
+    <div class="row" style="justify-content:space-between;align-items:end"><div><h2 style="font-size:1.4rem">${esc(ch.s.first)} ${esc(ch.s.last)}</h2><div class="sub">${esc(classes)} · ${esc(D.year.title)}</div></div><div class="sub">Stand ${dmy(todayIso())}</div></div>
+    <div class="tiles">${tiles}</div>
+    ${charts ? `<div class="charts">${charts}</div>` : ''}
+    ${detail.length ? `<div class="sec"><h3>Alle Einträge</h3><div class="scroll-x"><table class="st detail"><tbody>${detail.join('')}</tbody></table></div></div>` : '<div class="sec sub">Noch keine Noten oder Einträge.</div>'}
+    ${st.empty.length ? `<div class="sub" style="margin-top:8px">Ohne Einträge: ${st.empty.map(esc).join(', ')}</div>` : ''}
+    <div class="sec"><h3>Notizen zum Kind</h3>${print ? `<div style="white-space:pre-wrap">${esc(note) || '—'}</div><div style="margin-top:6mm;border-top:0.6pt solid #999;padding-top:2mm;font-size:9pt;color:#555">Notizen vom Elterngespräch:</div><div style="height:40mm"></div>` : `<textarea id="cn-${ch.key.replace(/\W/g, '_')}" style="min-height:120px" data-bind="childNote" data-k="${esc(ch.key)}" placeholder="z. B. Beobachtungen, Gesprächsnotizen vom Elternsprechtag …">${esc(note)}</textarea>`}</div></div>`;
 }
 function vKinder() {
   const kids = allChildren();
