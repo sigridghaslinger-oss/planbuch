@@ -1,0 +1,1368 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Planbuch</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Planbuch">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#FBFAFE">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&display=swap">
+<style>
+/* Layout: ruhige, helle Arbeitsfläche – Seitenleiste links (unten auf schmalen Geräten), Inhalt in hellen Flächen, Kursfarben als Pastell-Akzente */
+:root{
+  color-scheme: light;
+  --bg:#FBFAFE; --surface:#FFFFFF; --soft:#F4F2FB; --line:#E6E3F1; --line-strong:#D3CFE4;
+  --ink:#2F3149; --muted:#767B96; --faint:#A3A7BD;
+  --tuerkis:#5BBFBC; --tuerkis-ink:#1F6E6B; --tuerkis-bg:#DDF4F3;
+  --koralle:#F09486; --koralle-ink:#9A3F33; --koralle-bg:#FDE4E0;
+  --lila:#B49AE6; --lila-ink:#5B3F94; --lila-bg:#EEE7FB;
+  --mint:#86D3AC; --mint-ink:#2C7352; --mint-bg:#DFF5E9;
+  --rosa:#EFA3C3; --rosa-ink:#94385F; --rosa-bg:#FCE6F0;
+  --blau:#8DB8EC; --blau-ink:#2D5A91; --blau-bg:#E1EDFC;
+  --pfirsich:#F2B47E; --pfirsich-ink:#8E5320; --pfirsich-bg:#FDEBDB;
+  --sonne:#E8CF6A; --sonne-ink:#7A6413; --sonne-bg:#FBF3D3;
+  --sand:#C9B39A; --sand-ink:#6B5440; --sand-bg:#F1EAE1;
+  --grau:#B4B8C8; --grau-ink:#4F546A; --grau-bg:#EDEEF3;
+  --accent:var(--tuerkis); --accent-ink:var(--tuerkis-ink); --accent-bg:var(--tuerkis-bg);
+  --warn:var(--koralle); --warn-ink:var(--koralle-ink); --warn-bg:var(--koralle-bg);
+  --font-display:"Lexend", "Avenir Next", system-ui, sans-serif;
+  --font-body:"Nunito Sans", "Avenir Next", system-ui, -apple-system, sans-serif;
+  --r:12px; --r-sm:8px;
+  --shadow:0 1px 2px rgba(60,50,110,.05), 0 4px 16px rgba(60,50,110,.06);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--font-body);-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--font-display);font-weight:500;margin:0;line-height:1.25;text-wrap:balance}
+h1{font-size:1.45rem} h2{font-size:1.12rem} h3{font-size:.98rem}
+a{color:var(--accent-ink)}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* App-Rahmen */
+.app{display:grid;grid-template-columns:220px 1fr;height:100%}
+.side{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:max(18px,env(safe-area-inset-top)) 12px 16px max(12px,env(safe-area-inset-left));gap:4px;overflow-y:auto}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 10px 18px}
+.brand svg{flex:none}
+.brand b{font-family:var(--font-display);font-weight:600;font-size:1.15rem;letter-spacing:.01em}
+.brand small{display:block;color:var(--muted);font-size:.75rem}
+.nav{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:10px;border:0;background:none;cursor:pointer;text-align:left;color:var(--ink);font-weight:600;width:100%}
+.nav svg{width:20px;height:20px;flex:none;stroke:var(--muted)}
+.nav:hover{background:var(--soft)}
+.nav.on{background:var(--accent-bg);color:var(--accent-ink)}
+.nav.on svg{stroke:var(--accent-ink)}
+.side .spacer{flex:1}
+.savebox{border:1px solid var(--line);border-radius:var(--r);padding:12px;display:grid;gap:8px;font-size:.85rem;margin-top:12px}
+.savebox.dirty{border-color:var(--koralle);background:var(--koralle-bg)}
+.savebox .st{display:flex;align-items:center;gap:8px;font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--mint);flex:none}
+.dirty .dot{background:var(--koralle)}
+.main{overflow-y:auto;min-width:0;-webkit-overflow-scrolling:touch}
+.page{padding-block:max(20px,env(safe-area-inset-top)) 40px;padding-left:max(24px,env(safe-area-inset-left));padding-right:max(24px,env(safe-area-inset-right));max-width:1500px;margin:0 auto;display:grid;gap:18px}
+.head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between}
+.head .l{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
+.sub{color:var(--muted);font-size:.9rem}
+
+/* Bausteine */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-strong);background:var(--surface);border-radius:999px;padding:7px 14px;cursor:pointer;font-weight:600;font-size:.9rem;white-space:nowrap;color:var(--ink)}
+.btn:hover{background:var(--soft)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--tuerkis-ink)}
+.btn.warn{background:var(--koralle);border-color:var(--koralle);color:#fff}
+.btn.ghost{border-color:transparent;background:none}
+.btn.ghost:hover{background:var(--soft)}
+.btn.sm{padding:4px 10px;font-size:.82rem}
+.btn.icon{padding:6px;border-radius:50%;width:34px;height:34px;justify-content:center}
+.btn svg{width:17px;height:17px;stroke:currentColor}
+.btn:disabled{opacity:.45;cursor:default}
+.seg{display:inline-flex;background:var(--soft);border-radius:999px;padding:3px;gap:2px}
+.seg button{border:0;background:none;border-radius:999px;padding:5px 12px;font-weight:600;font-size:.85rem;cursor:pointer;color:var(--muted)}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+input[type=text],input[type=date],input[type=time],input[type=number],select,textarea{border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:7px 10px;background:var(--surface);min-width:0;max-width:100%}
+textarea{width:100%;resize:vertical;min-height:70px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent-bg);border-color:var(--accent)}
+label.f{display:grid;gap:4px;font-size:.82rem;color:var(--muted);font-weight:600}
+label.f > input,label.f > select,label.f > textarea{color:var(--ink);font-weight:400;font-size:.95rem}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 11px;font-weight:700;font-size:.82rem;background:var(--c-bg);color:var(--c-ink);border:1px solid transparent;cursor:pointer;white-space:nowrap}
+.chip.off{background:var(--surface);border-color:var(--line);color:var(--muted)}
+.chip i{width:9px;height:9px;border-radius:50%;background:var(--c-line)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.pill{display:inline-block;border-radius:999px;padding:1px 9px;font-size:.75rem;font-weight:700;background:var(--soft);color:var(--muted)}
+.empty{color:var(--muted);text-align:center;padding:28px 12px;font-size:.92rem}
+.rte{line-height:1.5;font-size:.93rem}
+.rte p{margin:0 0 6px}.rte ul,.rte ol{margin:0 0 6px;padding-left:20px}
+.rte:empty::before{content:attr(data-ph);color:var(--faint)}
+[contenteditable]{outline:none;border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:8px 10px;min-height:60px;background:var(--surface)}
+[contenteditable]:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
+.kicker{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--muted)}
+.c-tuerkis{--c-line:var(--tuerkis);--c-ink:var(--tuerkis-ink);--c-bg:var(--tuerkis-bg)}
+.c-koralle{--c-line:var(--koralle);--c-ink:var(--koralle-ink);--c-bg:var(--koralle-bg)}
+.c-lila{--c-line:var(--lila);--c-ink:var(--lila-ink);--c-bg:var(--lila-bg)}
+.c-mint{--c-line:var(--mint);--c-ink:var(--mint-ink);--c-bg:var(--mint-bg)}
+.c-rosa{--c-line:var(--rosa);--c-ink:var(--rosa-ink);--c-bg:var(--rosa-bg)}
+.c-blau{--c-line:var(--blau);--c-ink:var(--blau-ink);--c-bg:var(--blau-bg)}
+.c-pfirsich{--c-line:var(--pfirsich);--c-ink:var(--pfirsich-ink);--c-bg:var(--pfirsich-bg)}
+.c-sonne{--c-line:var(--sonne);--c-ink:var(--sonne-ink);--c-bg:var(--sonne-bg)}
+.c-sand{--c-line:var(--sand);--c-ink:var(--sand-ink);--c-bg:var(--sand-bg)}
+.c-grau{--c-line:var(--grau);--c-ink:var(--grau-ink);--c-bg:var(--grau-bg)}
+
+/* Heute */
+.today{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;align-items:start}
+.lessonhead{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.lessonhead .time{font-family:var(--font-display);font-size:1.05rem}
+.bigchip{font-family:var(--font-display);font-weight:600;font-size:1.05rem;padding:6px 14px;border-radius:12px;background:var(--c-bg);color:var(--c-ink)}
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.st{border-collapse:separate;border-spacing:0;width:100%;font-size:.9rem}
+table.st th,table.st td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;white-space:nowrap}
+table.st thead th{font-size:.75rem;color:var(--muted);font-weight:700;position:sticky;top:0;background:var(--surface);z-index:1;vertical-align:bottom}
+table.st td.n{color:var(--faint);width:28px;font-variant-numeric:tabular-nums}
+table.st td.cell{text-align:center;padding:3px;width:52px}
+.mark{width:42px;height:32px;border-radius:8px;border:1px dashed var(--line-strong);background:var(--surface);cursor:pointer;font-weight:700;font-size:1rem;display:inline-flex;align-items:center;justify-content:center}
+.mark.set{border-style:solid;border-color:transparent}
+.m-good{background:var(--mint-bg);color:var(--mint-ink)}
+.m-mid{background:var(--sonne-bg);color:var(--sonne-ink)}
+.m-bad{background:var(--koralle-bg);color:var(--koralle-ink)}
+.m-info{background:var(--blau-bg);color:var(--blau-ink)}
+.m-lila{background:var(--lila-bg);color:var(--lila-ink)}
+.m-grey{background:var(--grau-bg);color:var(--grau-ink)}
+.vth{writing-mode:vertical-rl;transform:rotate(180deg);max-height:140px;text-align:left;font-size:.78rem}
+.lessonbox{display:grid;gap:12px}
+.field-title{font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.unitline{font-size:.85rem;color:var(--muted)}
+.reminders li{display:flex;gap:8px;align-items:center}
+
+/* Kalender */
+.cal-wrap{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:18px;align-items:start}
+.week{display:grid;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow:hidden;min-width:640px}
+.week .h{background:var(--soft);padding:8px;font-weight:700;font-size:.85rem;text-align:center;border-bottom:1px solid var(--line)}
+.week .h.today{background:var(--accent-bg);color:var(--accent-ink)}
+.week .p{padding:6px 4px;text-align:center;border-bottom:1px solid var(--line);font-size:.75rem;color:var(--muted);font-variant-numeric:tabular-nums;display:flex;flex-direction:column;justify-content:center}
+.week .p b{font-family:var(--font-display);font-size:1rem;color:var(--ink);font-weight:500}
+.week .c{border-bottom:1px solid var(--line);border-left:1px solid var(--line);padding:3px;min-height:58px;display:grid;gap:3px;align-content:start}
+.week .c.vac{background:repeating-linear-gradient(135deg,var(--soft) 0 6px,var(--surface) 6px 12px)}
+.week .ev{border-left:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px;display:grid;gap:3px;align-content:start;min-height:34px}
+.les{border-radius:8px;padding:5px 7px;background:var(--c-bg);color:var(--c-ink);border-left:4px solid var(--c-line);cursor:pointer;font-size:.8rem;line-height:1.3;text-align:left;border-top:0;border-right:0;border-bottom:0;width:100%}
+.les b{display:block;font-size:.78rem}
+.les span{display:block;color:var(--ink);opacity:.85;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.les.done{opacity:.6}
+.les.cancel{background:var(--surface);border-left-color:var(--line-strong);color:var(--faint);text-decoration:line-through}
+.evt{border-radius:6px;padding:2px 6px;font-size:.75rem;background:var(--lila-bg);color:var(--lila-ink);cursor:pointer;border:0;text-align:left;width:100%;line-height:1.3}
+.evt.vacation{background:var(--mint-bg);color:var(--mint-ink);font-weight:700}
+.evt.supervision{background:var(--blau-bg);color:var(--blau-ink)}
+.evt.private{background:var(--rosa-bg);color:var(--rosa-ink)}
+.evt.consultation{background:var(--sonne-bg);color:var(--sonne-ink)}
+.mini{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:.78rem;text-align:center}
+.mini .wd{color:var(--faint);font-weight:700;padding:3px 0}
+.mini button{border:0;background:none;border-radius:8px;padding:5px 0;cursor:pointer;font-variant-numeric:tabular-nums}
+.mini button.out{color:var(--faint)}
+.mini button.wk{background:var(--accent-bg)}
+.mini button.td{background:var(--accent);color:#fff;font-weight:700}
+.mini button.vac{color:var(--mint-ink);text-decoration:underline;text-decoration-color:var(--mint)}
+
+/* Unterricht */
+.plan{display:grid;grid-template-columns:minmax(260px,330px) minmax(0,1fr);gap:18px;align-items:start}
+.dist{max-height:calc(100vh - 210px);overflow-y:auto;padding:6px}
+.dist .d{display:grid;grid-template-columns:62px 1fr auto;gap:8px;align-items:center;padding:6px 8px;border-radius:8px;font-size:.85rem;cursor:pointer}
+.dist .d:hover{background:var(--soft)}
+.dist .d.cur{background:var(--accent-bg)}
+.dist .d .dt{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.8rem;line-height:1.2}
+.dist .d .dt b{color:var(--ink);font-weight:700}
+.dist .d.cancel{color:var(--faint);text-decoration:line-through}
+.dist .d.free .t{color:var(--faint);font-style:italic}
+.dist .sep{font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;padding:10px 8px 4px}
+.unit{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow:hidden}
+.unit+.unit{margin-top:10px}
+.unit .uh{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--c-bg)}
+.unit .uh input{flex:1;border:0;background:transparent;font-family:var(--font-display);font-weight:500;font-size:1rem;color:var(--c-ink);padding:4px 6px;border-radius:6px;min-width:120px}
+.unit .uh input:focus{background:var(--surface);outline:none}
+.lrow{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;padding:7px 12px;border-top:1px solid var(--line)}
+.lrow .lt{display:flex;flex-direction:column;min-width:0;cursor:pointer}
+.lrow .lt b{font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.lrow .lt small{color:var(--muted);font-size:.78rem}
+.lrow.open{background:var(--soft)}
+.lrow.buffer .lt b,.les.buffer span,.dist .d.buffer .t{color:var(--faint);font-style:italic}
+.ledit{padding:12px;border-top:1px dashed var(--line-strong);background:var(--soft);display:grid;gap:10px}
+.check{width:22px;height:22px;border-radius:50%;border:2px solid var(--line-strong);background:var(--surface);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
+.check.on{background:var(--mint);border-color:var(--mint)}
+.check.on::after{content:"";width:9px;height:5px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) translate(1px,-1px)}
+.len{display:inline-flex;align-items:center;gap:2px;font-size:.8rem;color:var(--muted)}
+.len button{border:1px solid var(--line);background:var(--surface);border-radius:6px;width:22px;height:22px;cursor:pointer;line-height:1;padding:0}
+.stat{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
+.stat b{color:var(--ink);font-family:var(--font-display);font-weight:500;font-size:1.05rem}
+.bar{height:6px;background:var(--soft);border-radius:4px;overflow:hidden;min-width:120px;flex:1}
+.bar i{display:block;height:100%;background:var(--mint)}
+
+/* Drawer / Dialog */
+.scrim{position:fixed;inset:0;background:rgba(47,49,73,.25);z-index:50;display:flex;justify-content:flex-end}
+.drawer{width:min(480px,100%);height:100%;background:var(--surface);box-shadow:-8px 0 30px rgba(47,49,73,.12);overflow-y:auto;padding:max(20px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) 20px;display:grid;gap:14px;align-content:start}
+.drawer .dh{display:flex;align-items:start;justify-content:space-between;gap:10px}
+.dialog{margin:auto;width:min(440px,calc(100% - 32px));background:var(--surface);border-radius:16px;padding:20px;display:grid;gap:14px;box-shadow:0 20px 50px rgba(47,49,73,.2)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-weight:600;font-size:.9rem;z-index:80;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+
+/* Schüler */
+.ov th.grp{text-align:center;border-left:1px solid var(--line)}
+.ov td.sum{font-size:.8rem;color:var(--muted);border-left:1px solid var(--line)}
+.sym{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:6px;font-size:.78rem;font-weight:700;padding:0 4px}
+.kid-list{max-height:calc(100vh - 200px);overflow-y:auto}
+.kid-list .d{grid-template-columns:1fr auto}
+.prof h3{margin:0 0 6px}
+.prof .sec{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.kv{display:grid;grid-template-columns:minmax(120px,max-content) 1fr;gap:4px 14px;font-size:.9rem}
+.kv dt{color:var(--muted)}.kv dd{margin:0}
+.page-break{break-after:page}
+.optrow{display:grid;grid-template-columns:60px 1fr 120px 34px;gap:6px;align-items:center}
+
+/* Drucken – Vorschau */
+.pv{background:var(--soft);border-radius:var(--r);padding:18px;overflow:auto}
+.sheet{background:#fff;color:#222;margin:0 auto;box-shadow:var(--shadow);padding:12mm;font-family:var(--font-body)}
+.sheet.portrait{width:210mm;min-height:297mm}
+.sheet.landscape{width:297mm;min-height:210mm}
+.pt{border-collapse:collapse;width:100%;font-size:9.5pt}
+.pt th,.pt td{border:0.6pt solid #9a9cae;padding:3px 5px;vertical-align:top;text-align:left}
+.pt th{background:#f1eff8;font-weight:700;font-size:8.5pt}
+.pt td.nr{width:8mm;text-align:right;color:#666}
+.pt.lines td{height:7.5mm}
+.ph{display:flex;justify-content:space-between;align-items:end;margin-bottom:5mm;border-bottom:1.2pt solid #5BBFBC;padding-bottom:2mm}
+.ph h2{font-size:15pt}
+.ph .meta{font-size:9pt;color:#555;text-align:right}
+.wp td{font-size:8pt;line-height:1.3}
+.wp td .cs{font-weight:700;font-size:8.5pt;display:block}
+.wp td .ct ul,.wp td .ct ol{margin:1px 0;padding-left:12px}.wp td .ct p{margin:0}
+.wp td.pp{width:15mm;text-align:center;font-size:8pt;color:#555}
+.wp .lesscell{border-left:3pt solid var(--c-line)!important}
+.vlabel{writing-mode:vertical-rl;transform:rotate(180deg);height:32mm;white-space:nowrap;font-size:8pt}
+
+#print-area{display:none}
+@media print{
+  body{background:#fff}
+  .app,.scrim,.toast{display:none!important}
+  #print-area{display:block}
+  #print-area .sheet{box-shadow:none;margin:0;padding:0;width:auto;min-height:0}
+  .pt tr{break-inside:avoid}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
+/* Schmal: Navigation unten */
+@media (max-width:900px){
+  .app{grid-template-columns:1fr;grid-template-rows:1fr auto}
+  .side{flex-direction:row;border-right:0;border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));order:2;overflow-x:auto;gap:2px}
+  .brand,.side .spacer,.savebox{display:none}
+  .nav{flex-direction:column;gap:2px;font-size:.68rem;padding:6px 8px;min-width:62px;align-items:center}
+  .today,.cal-wrap,.plan{grid-template-columns:1fr}
+  .dist{max-height:340px}
+  .page{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+  .mobile-save{display:flex!important}
+}
+.mobile-save{display:none}
+@media (prefers-reduced-motion:no-preference){.drawer{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(30px);opacity:.6}}}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="side" id="side"></nav>
+  <main class="main" id="main"></main>
+</div>
+<div id="layer"></div>
+<div id="print-area"></div>
+<style id="page-style"></style>
+<input type="file" id="file-in" accept=".json,application/json" hidden>
+
+<script>
+'use strict';
+/* ---------- Hilfsfunktionen ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+const pad = n => String(n).padStart(2, '0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
+const weekday = s => { const w = parse(s).getDay(); return w === 0 ? 7 : w; };
+const monday = s => addDays(s, 1 - weekday(s));
+const todayIso = () => iso(new Date());
+const schoolWeek = () => { const t = todayIso(); return weekday(t) >= 6 ? addDays(monday(t), 7) : monday(t); };
+const nowHM = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const WD = ['', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+const WDL = ['', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+const MON = ['Jänner', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const dm = s => { const d = parse(s); return `${d.getDate()}.${d.getMonth() + 1}.`; };
+const dmy = s => { const d = parse(s); return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`; };
+const longDate = s => `${WDL[weekday(s)]}, ${parse(s).getDate()}. ${MON[parse(s).getMonth()]}`;
+const kw = s => { const d = parse(s); d.setDate(d.getDate() + 4 - (d.getDay() || 7)); const y = new Date(d.getFullYear(), 0, 1); return Math.ceil(((d - y) / 864e5 + 1) / 7); };
+const weeksBetween = (a, b) => Math.round((parse(b) - parse(a)) / (7 * 864e5));
+const COLORS = ['tuerkis', 'koralle', 'lila', 'mint', 'rosa', 'blau', 'pfirsich', 'sonne', 'sand', 'grau'];
+const COLOR_NAMES = { tuerkis: 'Türkis', koralle: 'Koralle', lila: 'Lila', mint: 'Mint', rosa: 'Rosa', blau: 'Blau', pfirsich: 'Pfirsich', sonne: 'Sonne', sand: 'Sand', grau: 'Grau' };
+const EVENT_TYPES = { school: 'Schultermin', supervision: 'Aufsicht', consultation: 'Sprechstunde', private: 'Privat', other: 'Sonstiges', vacation: 'Ferien / schulfrei' };
+const MARK_STYLES = { good: 'Grün', mid: 'Gelb', bad: 'Koralle', info: 'Blau', lila: 'Lila', grey: 'Grau' };
+const stripHtml = h => { const t = document.createElement('div'); t.innerHTML = h || ''; return t.textContent.trim(); };
+
+function sanitize(html) {
+  const t = document.createElement('template');
+  t.innerHTML = html || '';
+  const ok = { P: 1, UL: 1, OL: 1, LI: 1, B: 1, STRONG: 1, I: 1, EM: 1, U: 1, BR: 1, A: 1 };
+  (function walk(n) {
+    [...n.childNodes].forEach(c => {
+      if (c.nodeType === 1) {
+        if (['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'svg'].includes(c.tagName)) { c.remove(); return; }
+        walk(c);
+        if (!ok[c.tagName]) {
+          if (c.tagName === 'DIV') { const p = document.createElement('p'); p.append(...c.childNodes); c.replaceWith(p); }
+          else c.replaceWith(...c.childNodes);
+          return;
+        }
+        [...c.attributes].forEach(a => { if (!(c.tagName === 'A' && a.name === 'href' && /^https?:/i.test(a.value))) c.removeAttribute(a.name); });
+        if (c.tagName === 'A') { c.setAttribute('target', '_blank'); c.setAttribute('rel', 'noopener'); }
+      } else if (c.nodeType !== 3) c.remove();
+    });
+  })(t.content);
+  return t.innerHTML.replace(/<p>\s*<\/p>/g, '').trim();
+}
+
+const I = {
+  today: '<path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/><circle cx="12" cy="12" r="4"/>',
+  cal: '<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  plan: '<path d="M5 4h11l3 3v13H5z"/><path d="M9 10h6M9 14h6M9 18h3"/>',
+  people: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.2c2.3.2 4 1.8 4.5 4.8"/>',
+  note: '<path d="M6 3.5h9l3.5 3.5v13.5H6z"/><path d="M9 11h6M9 15h4"/>',
+  bell: '<path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+  print: '<path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M7 14h10v6H7z"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>',
+  left: '<path d="m15 5-7 7 7 7"/>', right: '<path d="m9 5 7 7-7 7"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>', x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  up: '<path d="m6 15 6-6 6 6"/>', down: '<path d="m6 9 6 6 6-6"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  undo: '<path d="M9 7 4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12h-2" transform="translate(0 -6)"/>',
+  cloud: '<path d="M7 18h10a4 4 0 0 0 .6-8A6 6 0 0 0 6.2 9 4.5 4.5 0 0 0 7 18z"/><path d="M12 11v5M9.5 13.5 12 16l2.5-2.5"/>',
+  open: '<path d="M7 18h10a4 4 0 0 0 .6-8A6 6 0 0 0 6.2 9 4.5 4.5 0 0 0 7 18z"/><path d="M12 16v-5M9.5 13.5 12 11l2.5 2.5"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  child: '<circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.8 3.6-6 7-6s6.2 2.2 7 6"/>',
+};
+const icon = (n, cls = '') => `<svg class="${cls}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[n]}</svg>`;
+
+/* ---------- Daten & Speicher ---------- */
+let D = null;            // alle Daten
+let version = 0;         // steigt bei jeder Änderung (für Zwischenspeicher)
+const meta = { changedAt: null, fileSavedAt: null, fileName: null };
+const undoStack = [];
+const ui = { view: 'heute', courseId: null, classId: null, week: null, focusKey: null, openLesson: null, openUnits: {}, print: { kind: 'liste', mode: 'blanko', cols: 10, rows: 25, headers: '', title: '', orient: 'portrait', detail: 'voll', week: null, colId: null }, noteId: null, studentCourse: null };
+
+const idb = (() => {
+  let dbp = null;
+  const open = () => dbp || (dbp = new Promise((res, rej) => {
+    const r = indexedDB.open('planbuch', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }));
+  const tx = async (mode, fn) => { const db = await open(); return new Promise((res, rej) => { const t = db.transaction('kv', mode); const st = t.objectStore('kv'); const q = fn(st); t.oncomplete = () => res(q && q.result); t.onerror = () => rej(t.error); }); };
+  return { get: k => tx('readonly', s => s.get(k)), set: (k, v) => tx('readwrite', s => s.put(v, k)), del: k => tx('readwrite', s => s.delete(k)) };
+})();
+
+let saveTimer = null;
+function persist() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try { await idb.set('data', JSON.stringify(D)); await idb.set('meta', JSON.stringify(meta)); }
+    catch (e) { try { localStorage.setItem('planbuch-data', JSON.stringify(D)); localStorage.setItem('planbuch-meta', JSON.stringify(meta)); } catch (_) { toast('Speichern auf diesem Gerät ist fehlgeschlagen. Bitte auf OneDrive sichern.'); } }
+  }, 250);
+}
+async function loadLocal() {
+  try {
+    const d = await idb.get('data'); const m = await idb.get('meta');
+    if (d) { D = JSON.parse(d); if (m) Object.assign(meta, JSON.parse(m)); return true; }
+  } catch (e) { /* weiter mit localStorage */ }
+  try { const d = localStorage.getItem('planbuch-data'); if (d) { D = JSON.parse(d); Object.assign(meta, JSON.parse(localStorage.getItem('planbuch-meta') || '{}')); return true; } } catch (e) { }
+  return false;
+}
+function commit(fn, opts = {}) {
+  if (!opts.noUndo) { undoStack.push(JSON.stringify(D)); if (undoStack.length > 25) undoStack.shift(); }
+  fn();
+  version++; meta.changedAt = new Date().toISOString();
+  persist();
+  if (!opts.noRender) render();
+  else renderSide();
+}
+function undo() {
+  if (!undoStack.length) return;
+  D = JSON.parse(undoStack.pop()); version++; meta.changedAt = new Date().toISOString(); persist(); render(); toast('Rückgängig gemacht');
+}
+const isDirty = () => !meta.fileSavedAt || (meta.changedAt && meta.changedAt > meta.fileSavedAt);
+
+function normalize(d) {
+  d.classes ||= []; d.courses ||= []; d.childNotes ||= {}; d.events ||= []; d.weekNotes ||= {}; d.notes ||= []; d.reminders ||= [];
+  d.periods ||= []; d.year ||= { title: 'Schuljahr', start: todayIso(), end: addDays(todayIso(), 300), days: [1, 2, 3, 4, 5] };
+  d.courses.forEach(c => { c.units ||= []; c.slots ||= []; c.extra ||= []; c.cancelled ||= []; c.columns ||= []; c.entries ||= {}; c.lessonNotes ||= {}; c.attendance ||= {}; c.color ||= 'tuerkis'; });
+  d.classes.forEach(k => { k.students ||= []; });
+  return d;
+}
+
+/* ---------- OneDrive: Sichern und Laden ---------- */
+const FILE_NAME = 'Planbuch-Daten.json';
+async function saveFile() {
+  D.savedAt = new Date().toISOString();
+  const json = JSON.stringify(D, null, 1);
+  const done = how => { meta.fileSavedAt = new Date().toISOString(); persist(); renderSide(); toast(how); };
+  // 1) Chrome/Edge am Mac: einmal Datei im OneDrive-Ordner wählen, danach direkt speichern
+  if (window.showSaveFilePicker) {
+    try {
+      let h = await idb.get('fileHandle').catch(() => null);
+      if (h && (await h.queryPermission({ mode: 'readwrite' })) !== 'granted') {
+        if ((await h.requestPermission({ mode: 'readwrite' })) !== 'granted') h = null;
+      }
+      if (!h) {
+        h = await window.showSaveFilePicker({ suggestedName: FILE_NAME, types: [{ description: 'Planbuch-Daten', accept: { 'application/json': ['.json'] } }] });
+        await idb.set('fileHandle', h).catch(() => { });
+      }
+      const w = await h.createWritable(); await w.write(json); await w.close();
+      meta.fileName = h.name; return done(`Gesichert in „${h.name}“`);
+    } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const file = new File([json], FILE_NAME, { type: 'application/json' });
+  // 2) iPad/iPhone: Teilen-Menü → „In Dateien sichern“ → OneDrive
+  if (navigator.canShare && navigator.canShare({ files: [file] }) && /iPad|iPhone|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document) {
+    try { await navigator.share({ files: [file], title: 'Planbuch-Daten' }); return done('Datei übergeben. Wähle „In Dateien sichern“ → OneDrive.'); }
+    catch (e) { if (e.name === 'AbortError') return; }
+  }
+  // 3) Sonst: Datei herunterladen
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = FILE_NAME;
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  done('Datei gespeichert. Lege sie in deinen OneDrive-Ordner.');
+}
+function openFile() { const f = $('#file-in'); f.value = ''; f.click(); }
+$('#file-in').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (d.app !== 'planbuch') throw new Error('keine Planbuch-Datei');
+    const apply = () => {
+      if (D) { undoStack.push(JSON.stringify(D)); }
+      D = normalize(d); version++; meta.fileSavedAt = new Date().toISOString(); meta.changedAt = meta.fileSavedAt; meta.fileName = f.name;
+      persist(); pickDefaults(); render(); toast(`„${f.name}“ geladen`);
+    };
+    if (D && isDirty()) confirmBox('Datei laden?', 'Auf diesem Gerät gibt es Änderungen, die noch nicht auf OneDrive gesichert sind. Beim Laden werden sie ersetzt.', 'Laden und ersetzen', apply);
+    else apply();
+  } catch (err) { toast('Diese Datei kann ich nicht lesen. Wähle die Datei „Planbuch-Daten.json“.'); }
+});
+
+/* ---------- Stundenverteilung ---------- */
+let memo = { v: -1 };
+function vacSet() {
+  if (memo.v === version && memo.vac) return memo.vac;
+  const s = new Set();
+  D.events.filter(e => e.type === 'vacation').forEach(e => { for (let d = e.start; d <= (e.end || e.start); d = addDays(d, 1)) s.add(d); });
+  if (memo.v !== version) memo = { v: version };
+  memo.vac = s; return s;
+}
+function periodOf(t) { const p = D.periods.find(p => p.start === t) || D.periods.find(p => t >= p.start && t < p.end); return p ? p.n : null; }
+function occurrences(course) {
+  const out = []; const y = D.year; const vac = vacSet(); const canc = new Set(course.cancelled);
+  const slots = [...course.slots].sort((a, b) => a.start.localeCompare(b.start));
+  if (!slots.length && !(course.extra || []).length) return out;
+  for (let d = y.start; d <= y.end; d = addDays(d, 1)) {
+    const wd = weekday(d);
+    if (!y.days.includes(wd) || vac.has(d)) continue;
+    for (const s of slots) {
+      if (s.weekday !== wd) continue;
+      const from = s.from || y.start;
+      if (d < from || (s.until && d > s.until)) continue;
+      if ((s.every || 1) > 1 && weeksBetween(monday(from), monday(d)) % s.every !== 0) continue;
+      const key = `${d} ${s.start}`;
+      out.push({ key, date: d, start: s.start, end: s.end, room: s.room || '', cancelled: canc.has(key), course });
+    }
+  }
+  (course.extra || []).forEach(x => {
+    const key = `${x.date} ${x.start}`;
+    if (x.date >= y.start && x.date <= y.end && !out.some(o => o.key === key)) out.push({ key, date: x.date, start: x.start, end: x.end, room: x.room || '', cancelled: canc.has(key), course, extra: true });
+  });
+  return out.sort((a, b) => a.key.localeCompare(b.key));
+}
+function planOf(course) {
+  if (memo.v !== version) memo = { v: version };
+  memo.plans ||= {};
+  if (memo.plans[course.id]) return memo.plans[course.id];
+  const occ = occurrences(course);
+  const flat = [];
+  course.units.forEach(u => u.lessons.forEach(l => { for (let i = 1; i <= (l.length || 1); i++) flat.push({ u, l, part: i }); }));
+  let k = 0;
+  occ.forEach(o => { if (o.cancelled) return; const f = flat[k++]; if (f) { o.unit = f.u; o.lesson = f.l; o.part = f.part; } });
+  const byLesson = {};
+  occ.forEach(o => { if (o.lesson) (byLesson[o.lesson.id] ||= []).push(o); });
+  const free = occ.filter(o => !o.cancelled).length;
+  const res = { occ, byLesson, planned: flat.length, available: free, byKey: Object.fromEntries(occ.map(o => [o.key, o])) };
+  memo.plans[course.id] = res; return res;
+}
+function allOcc() {
+  if (memo.v !== version) memo = { v: version };
+  if (memo.all) return memo.all;
+  memo.all = D.courses.flatMap(c => planOf(c).occ).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+  return memo.all;
+}
+const courseById = id => D.courses.find(c => c.id === id);
+const classById = id => D.classes.find(c => c.id === id);
+const studentsOf = cls => (cls ? [...cls.students] : []).sort((a, b) => (a.last + ' ' + a.first).localeCompare(b.last + ' ' + b.first, 'de'));
+const cname = c => c ? c.short || `${classById(c.classId)?.title || ''} ${c.subject}` : '';
+function findLesson(course, lessonId) { for (const u of course.units) { const l = u.lessons.find(x => x.id === lessonId); if (l) return { u, l }; } return {}; }
+const eventsOn = d => D.events.filter(e => e.start <= d && (e.end || e.start) >= d).sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+
+/* ---------- Navigation & Rahmen ---------- */
+const VIEWS = [
+  ['heute', 'Heute', 'today'], ['kalender', 'Kalender', 'cal'], ['unterricht', 'Unterricht', 'plan'], ['schueler', 'Schüler', 'people'], ['kinder', 'Kinder', 'child'],
+  ['notizen', 'Notizen', 'note'], ['erinnerungen', 'Erinnerungen', 'bell'], ['drucken', 'Drucken', 'print'], ['einstellungen', 'Einstellungen', 'gear'],
+];
+function renderSide() {
+  const dirty = isDirty();
+  const saved = meta.fileSavedAt ? new Date(meta.fileSavedAt) : null;
+  const when = saved ? `${saved.toLocaleDateString('de-AT')} ${saved.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' })}` : 'noch nie';
+  $('#side').innerHTML = `
+    <div class="brand"><svg width="34" height="34" viewBox="0 0 34 34"><rect width="34" height="34" rx="10" fill="var(--tuerkis-bg)"/><rect x="8" y="9" width="18" height="17" rx="3" fill="none" stroke="var(--tuerkis-ink)" stroke-width="1.8"/><path d="M8 14h18" stroke="var(--tuerkis-ink)" stroke-width="1.8"/><circle cx="13" cy="19.5" r="1.8" fill="var(--koralle)"/><circle cx="18.5" cy="19.5" r="1.8" fill="var(--lila)"/><circle cx="13" cy="23" r="0" /></svg><div><b>Planbuch</b><small>${esc(D?.year?.title || '')}</small></div></div>
+    ${VIEWS.map(([k, t, ic]) => `<button class="nav ${ui.view === k ? 'on' : ''}" data-act="go" data-v="${k}">${icon(ic)}<span>${t}</span></button>`).join('')}
+    <div class="spacer"></div>
+    <div class="savebox ${dirty ? 'dirty' : ''}">
+      <div class="st"><span class="dot"></span>${!meta.fileSavedAt ? 'Noch nie auf OneDrive gesichert' : dirty ? 'Änderungen nicht gesichert' : 'Auf OneDrive gesichert'}</div>
+      <div class="sub" style="font-size:.78rem">Zuletzt gesichert: ${when}</div>
+      <div class="row" style="gap:6px"><button class="btn sm ${dirty ? 'warn' : ''}" data-act="save">${icon('cloud')}Sichern</button><button class="btn sm ghost" data-act="open">${icon('open')}Laden</button></div>
+      <button class="btn sm ghost" data-act="undo" ${undoStack.length ? '' : 'disabled'}>${icon('undo')}Rückgängig</button>
+    </div>`;
+}
+function pageHead(title, sub, right = '') {
+  const dirty = isDirty();
+  return `<div class="head"><div class="l"><h1>${title}</h1>${sub ? `<span class="sub">${sub}</span>` : ''}</div><div class="row">${right}
+    <span class="mobile-save row" style="gap:6px"><button class="btn icon ${dirty ? 'warn' : ''}" data-act="save" title="Auf OneDrive sichern" aria-label="Auf OneDrive sichern">${icon('cloud')}</button><button class="btn icon" data-act="undo" title="Rückgängig" aria-label="Rückgängig" ${undoStack.length ? '' : 'disabled'}>${icon('undo')}</button></span></div></div>`;
+}
+function render() {
+  renderSide();
+  const m = $('#main'); const st = m.scrollTop;
+  const views = { heute: vHeute, kalender: vKalender, unterricht: vUnterricht, schueler: vSchueler, kinder: vKinder, notizen: vNotizen, erinnerungen: vErinnerungen, drucken: vDrucken, einstellungen: vEinstellungen };
+  m.innerHTML = `<div class="page">${(views[ui.view] || vHeute)()}</div>`;
+  m.scrollTop = st;
+  afterRender();
+}
+function afterRender() {
+  $$('[data-rte]').forEach(el => { el.innerHTML = sanitize(el.dataset.html || ''); });
+}
+
+/* ---------- Ansicht: Heute ---------- */
+function currentOcc() {
+  const all = allOcc().filter(o => !o.cancelled);
+  if (ui.focusKey) { const f = all.find(o => o.course.id + '|' + o.key === ui.focusKey); if (f) return f; }
+  const t = todayIso(), n = nowHM();
+  return all.find(o => o.date === t && o.start <= n && o.end > n) || all.find(o => o.date > t || (o.date === t && o.start >= n)) || all[all.length - 1];
+}
+function vHeute() {
+  if (!D.courses.length) return pageHead('Heute') + `<div class="card empty">Noch keine Kurse angelegt. Unter „Einstellungen“ legst du Klassen, Kurse und deinen Stundenplan an.</div>`;
+  const o = currentOcc();
+  if (!o) return pageHead('Heute') + `<div class="card empty">Im Schuljahr sind keine Stunden geplant. Prüfe den Stundenplan unter „Einstellungen“.</div>`;
+  ui.focusKey = o.course.id + '|' + o.key;
+  const c = o.course, cls = classById(c.classId), pl = planOf(c);
+  const p = periodOf(o.start);
+  const isNow = o.date === todayIso() && o.start <= nowHM() && o.end > nowHM();
+  const l = o.lesson, u = o.unit;
+  const ln = c.lessonNotes[o.key] || '';
+  const todayRem = D.reminders.filter(r => !r.done && r.date && r.date <= todayIso());
+  const right = `<button class="btn icon" data-act="occ-prev" aria-label="Vorige Stunde">${icon('left')}</button><button class="btn sm" data-act="occ-now">Jetzt</button><button class="btn icon" data-act="occ-next" aria-label="Nächste Stunde">${icon('right')}</button>`;
+  const studs = studentsOf(cls);
+  const att = c.attendance[o.date] || {};
+  const cols = c.columns;
+  const table = studs.length ? `<div class="scroll-x"><table class="st"><thead><tr><th></th><th>Name</th><th><span class="vth">Anwesenheit</span></th>${cols.map(col => `<th class="cell"><span class="vth">${esc(col.title)}</span></th>`).join('')}</tr></thead><tbody>
+    ${studs.map((s, i) => {
+      const a = att[s.id];
+      const aLab = { a: ['fehlt', 'bad'], e: ['entsch.', 'info'], l: ['spät', 'mid'] }[a];
+      return `<tr><td class="n">${s.number || i + 1}</td><td>${esc(s.last)}${s.first ? ', ' + esc(s.first) : ''}</td>
+      <td class="cell"><button class="mark ${aLab ? 'set m-' + aLab[1] : ''}" style="width:58px;font-size:.75rem" data-act="att" data-c="${c.id}" data-s="${s.id}" data-d="${o.date}">${aLab ? aLab[0] : ''}</button></td>
+      ${cols.map(col => cellHtml(c, col, s, o.date)).join('')}</tr>`;
+    }).join('')}</tbody></table></div>` : `<div class="empty">Für ${esc(cls?.title || 'diese Klasse')} sind noch keine Schülerinnen und Schüler eingetragen.<br><button class="btn sm" style="margin-top:10px" data-act="go" data-v="schueler">Schülerliste anlegen</button></div>`;
+  return pageHead('Heute', longDate(todayIso()), right) + `
+  <div class="card c-${c.color}"><div class="lessonhead">
+    <span class="bigchip">${esc(cname(c))}</span>
+    <span class="time">${o.date === todayIso() ? 'Heute' : longDate(o.date)} · ${p ? p + '. Stunde · ' : ''}${o.start}–${o.end}${o.room ? ' · ' + esc(o.room) : ''}</span>
+    ${isNow ? '<span class="pill" style="background:var(--mint-bg);color:var(--mint-ink)">läuft gerade</span>' : ''}
+  </div></div>
+  <div class="today">
+    <div class="card"><div class="head" style="margin-bottom:8px"><h2>${esc(cls?.title || '')} – Mitschrift</h2><button class="btn sm ghost" data-act="cols" data-c="${c.id}">${icon('edit')}Spalten</button></div>${table}</div>
+    <div style="display:grid;gap:18px">
+      <div class="card lessonbox">
+        ${l ? `<div><div class="unitline">${esc(u.title)}${l.length > 1 ? ` · Teil ${o.part} von ${l.length}` : ''}</div><h2 style="margin-top:2px">${esc(l.title || 'Ohne Titel')}</h2></div>
+        <div class="row"><button class="check ${l.done ? 'on' : ''}" data-act="done" data-c="${c.id}" data-l="${l.id}" aria-label="erledigt"></button><span class="sub">${l.done ? 'Erledigt' : 'Als erledigt markieren'}</span>
+        <span style="flex:1"></span><button class="btn sm" data-act="lesson-open" data-c="${c.id}" data-l="${l.id}">${icon('edit')}Bearbeiten</button></div>
+        ${l.content ? `<div><div class="field-title">Inhalt</div><div class="rte" data-rte data-html="${esc(l.content)}"></div></div>` : ''}
+        ${l.material ? `<div><div class="field-title">Material</div><div class="rte" data-rte data-html="${esc(l.material)}"></div></div>` : ''}
+        ${l.homework ? `<div><div class="field-title">Hausübung</div><div class="rte" data-rte data-html="${esc(l.homework)}"></div></div>` : ''}
+        ${!l.content && !l.material && !l.homework ? '<div class="sub">Noch kein Inhalt eingetragen.</div>' : ''}`
+      : `<div class="sub">Für diese Stunde ist im Stoffplan noch nichts geplant (${pl.planned} von ${pl.available} Stunden verplant).</div><button class="btn sm" data-act="go-plan" data-c="${c.id}">Zur Unterrichtsplanung</button>`}
+        <div><div class="field-title">Notiz zu dieser Stunde</div><textarea id="ln-${o.key}" data-bind="lessonNote" data-c="${c.id}" data-k="${o.key}" placeholder="z. B. Wer hat gefehlt, was ist offen geblieben …">${esc(ln)}</textarea></div>
+        <div class="row"><button class="btn sm ghost" data-act="cancel-occ" data-c="${c.id}" data-k="${o.key}">Stunde entfällt</button></div>
+      </div>
+      ${todayRem.length ? `<div class="card"><h3 style="margin-bottom:8px">Fällige Erinnerungen</h3><ul class="reminders" style="list-style:none;margin:0;padding:0;display:grid;gap:6px">${todayRem.map(r => `<li><button class="check" data-act="rem-done" data-id="${r.id}" aria-label="erledigt"></button>${esc(r.text)}<span class="sub">${dm(r.date)}</span></li>`).join('')}</ul></div>` : ''}
+    </div>
+  </div>`;
+}
+function optOf(col, v) { return (col.options || []).find(o => o.id === v); }
+/* ---------- Noten ---------- */
+const fmtG = v => v == null ? '' : String(Math.round(v * 100) / 100).replace('.', ',');
+const parseG = v => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? null : n; };
+function catAvg(g, cat, sid) { const vs = cat.items.map(it => g.values[it.id]?.[sid]).filter(v => v != null); return vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null; }
+function totalGrade(g, sid) { let n = 0, d = 0; g.categories.forEach(cat => { const a = catAvg(g, cat, sid); const w = +cat.weight || 0; if (a != null && w) { n += w * a; d += w; } }); return d ? n / d : null; }
+const gradeCls = v => v == null ? '' : v <= 2.5 ? 'm-good' : v <= 3.5 ? 'm-mid' : 'm-bad';
+function gradeTable(c, studs, printMode) {
+  const g = c.grades;
+  const head1 = g.categories.map(cat => `<th class="grp" colspan="${cat.items.length + 1}">${esc(cat.title)} <span class="sub" style="font-weight:600">×${esc(cat.weight)}</span></th>`).join('');
+  const head2 = g.categories.map(cat => `<th class="grp">Ø</th>${cat.items.map(it => `<th>${esc(it.title)}</th>`).join('')}`).join('');
+  const rows = studs.map(s => {
+    const tot = totalGrade(g, s.id);
+    return `<tr><td>${esc(s.last)}${s.first ? ', ' + esc(s.first) : ''}</td><td style="text-align:center"><span class="sym ${printMode ? '' : gradeCls(tot)}" id="gt-${s.id}" style="min-width:38px">${fmtG(tot)}</span></td>${g.categories.map(cat => {
+      const a = catAvg(g, cat, s.id);
+      return `<td class="sum" style="text-align:center"><span id="ga-${cat.id}-${s.id}">${fmtG(a)}</span></td>${cat.items.map(it => {
+        const v = g.values[it.id]?.[s.id];
+        return printMode ? `<td style="text-align:center">${fmtG(v)}</td>` : `<td class="cell"><input type="text" inputmode="decimal" style="width:48px;text-align:center;padding:4px" id="gv-${it.id}-${s.id}" value="${fmtG(v)}" data-bind="grade" data-c="${c.id}" data-it="${it.id}" data-s="${s.id}" aria-label="${esc(it.title)} ${esc(s.last)}"></td>`;
+      }).join('')}`;
+    }).join('')}</tr>`;
+  }).join('');
+  return `<table class="${printMode ? 'pt' : 'st ov'}"><thead><tr><th>Name</th><th>Gesamt</th>${head1}</tr><tr><th></th><th></th>${head2}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+function updateGradeRow(c, sid) {
+  const g = c.grades;
+  g.categories.forEach(cat => { const el = $(`#ga-${cat.id}-${sid}`); if (el) el.textContent = fmtG(catAvg(g, cat, sid)); });
+  const t = $(`#gt-${sid}`); if (t) { const v = totalGrade(g, sid); t.textContent = fmtG(v); t.className = 'sym ' + gradeCls(v); }
+}
+function gradesDialog(cid) {
+  const c = courseById(cid);
+  drawer(() => `<div class="dh"><div><div class="kicker">${esc(cname(c))}</div><h2>Notenliste einrichten</h2></div><button class="btn icon ghost" data-act="close" aria-label="Schließen">${icon('x')}</button></div>
+    <p class="sub" style="margin:0">Die Gesamtnote ist der gewichtete Durchschnitt der Bereiche. Innerhalb eines Bereichs zählen alle Noten gleich.</p>
+    ${c.grades.categories.map((cat, i) => `<div class="card" style="display:grid;gap:8px;padding:12px">
+      <div class="row"><input type="text" id="gc-${cat.id}" value="${esc(cat.title)}" data-bind="gcat" data-c="${c.id}" data-cat="${cat.id}" data-f="title" style="flex:1" aria-label="Bereich">
+        <label class="row sub" style="gap:4px">Gewicht <input type="number" min="0" step="0.5" id="gw-${cat.id}" style="width:70px" value="${esc(cat.weight)}" data-bind="gcat" data-c="${c.id}" data-cat="${cat.id}" data-f="weight"></label>
+        <button class="btn icon ghost" data-act="gcat-move" data-c="${c.id}" data-cat="${cat.id}" ${i === 0 ? 'disabled' : ''} aria-label="nach oben">${icon('up')}</button>
+        <button class="btn icon ghost" data-act="gcat-del" data-c="${c.id}" data-cat="${cat.id}" aria-label="Bereich löschen">${icon('trash')}</button></div>
+      ${cat.items.map(it => `<div class="row" style="padding-left:12px"><input type="text" id="gi-${it.id}" value="${esc(it.title)}" data-bind="gitem" data-c="${c.id}" data-cat="${cat.id}" data-it="${it.id}" style="flex:1" aria-label="Note"><button class="btn icon ghost" data-act="gitem-del" data-c="${c.id}" data-cat="${cat.id}" data-it="${it.id}" aria-label="entfernen">${icon('x')}</button></div>`).join('')}
+      <button class="btn sm ghost" style="justify-self:start;margin-left:12px" data-act="gitem-add" data-c="${c.id}" data-cat="${cat.id}">${icon('plus')}Spalte, z. B. „2. SA“</button></div>`).join('')}
+    <div><button class="btn sm primary" data-act="gcat-add" data-c="${c.id}">${icon('plus')}Bereich</button></div>`, 'grades');
+}
+function cellHtml(c, col, s, date) {
+  const v = c.entries[col.id]?.[s.id]?.[date];
+  if (col.type === 'text') return `<td class="cell"><input type="text" style="width:80px;padding:4px 6px" value="${esc(v || '')}" data-bind="entry" data-c="${c.id}" data-col="${col.id}" data-s="${s.id}" data-d="${date}"></td>`;
+  const o = optOf(col, v);
+  return `<td class="cell"><button class="mark ${o ? 'set m-' + o.style : ''}" data-act="mark" data-c="${c.id}" data-col="${col.id}" data-s="${s.id}" data-d="${date}" aria-label="${esc(col.title)}">${o ? esc(o.symbol) : ''}</button></td>`;
+}
+
+/* ---------- Ansicht: Kalender ---------- */
+function vKalender() {
+  ui.week ||= schoolWeek();
+  const days = D.year.days.map(wd => addDays(ui.week, wd - 1));
+  const vac = vacSet(); const t = todayIso();
+  const occ = allOcc().filter(o => o.date >= ui.week && o.date <= addDays(ui.week, 6));
+  const cols = `grid-template-columns:62px repeat(${days.length},minmax(0,1fr))`;
+  let html = `<div class="week" style="${cols}"><div class="h"></div>${days.map(d => `<div class="h ${d === t ? 'today' : ''}">${WD[weekday(d)]} ${dm(d)}</div>`).join('')}`;
+  html += `<div class="p">Termine</div>${days.map(d => `<div class="ev">${eventsOn(d).map(e => `<button class="evt ${e.type}" data-act="event" data-id="${e.id}">${e.startTime && e.start === d ? e.startTime + ' ' : ''}${esc(e.title)}</button>`).join('')}<button class="btn ghost sm" style="justify-self:start;padding:0 6px;color:var(--faint)" data-act="event-new" data-d="${d}" aria-label="Termin anlegen">+</button></div>`).join('')}`;
+  D.periods.forEach(p => {
+    html += `<div class="p"><b>${p.n}</b>${p.start}</div>`;
+    days.forEach(d => {
+      const here = occ.filter(o => o.date === d && periodOf(o.start) === p.n);
+      html += `<div class="c ${vac.has(d) ? 'vac' : ''}">${here.map(o => lesChip(o)).join('')}</div>`;
+    });
+  });
+  html += '</div>';
+  const wk = ui.week;
+  const right = `<button class="btn icon" data-act="wk" data-n="-7" aria-label="Vorige Woche">${icon('left')}</button><button class="btn sm" data-act="wk-now">Diese Woche</button><button class="btn icon" data-act="wk" data-n="7" aria-label="Nächste Woche">${icon('right')}</button>`;
+  const noteKey = wk;
+  return pageHead('Kalender', `KW ${kw(wk)} · ${dm(wk)}–${dmy(addDays(wk, 4))}`, right) + `
+  <div class="cal-wrap"><div class="scroll-x">${html}</div>
+    <div style="display:grid;gap:16px">
+      <div class="card">${miniMonth(ui.miniMonth || wk)}</div>
+      <div class="card"><div class="field-title" style="margin-bottom:6px">Wochennotiz</div><textarea id="wn-${noteKey}" data-bind="weekNote" data-k="${noteKey}" placeholder="Was steht diese Woche an?">${esc(D.weekNotes[noteKey] || '')}</textarea></div>
+      <div class="card"><div class="field-title" style="margin-bottom:6px">Legende</div><div class="chips">${D.courses.filter(c => c.slots.length).map(c => `<span class="chip c-${c.color}" data-act="go-plan" data-c="${c.id}"><i></i>${esc(cname(c))}</span>`).join('')}</div></div>
+    </div></div>`;
+}
+function lesChip(o) {
+  const c = o.course;
+  if (o.cancelled) return `<button class="les cancel c-${c.color}" data-act="occ" data-c="${c.id}" data-k="${o.key}"><b>${esc(cname(c))}</b><span>entfällt</span></button>`;
+  return `<button class="les c-${c.color} ${o.lesson?.done ? 'done' : ''} ${o.lesson?.buffer ? 'buffer' : ''}" data-act="occ" data-c="${c.id}" data-k="${o.key}"><b>${esc(cname(c))}${o.room ? ' · ' + esc(o.room) : ''}</b><span>${o.lesson ? esc(o.lesson.title || 'Ohne Titel') : '<i style="opacity:.6">nicht geplant</i>'}</span></button>`;
+}
+function miniMonth(anchor) {
+  const first = parse(anchor); first.setDate(1);
+  const f = iso(first); const start = monday(f); const vac = vacSet(); const t = todayIso();
+  let h = `<div class="row" style="justify-content:space-between;margin-bottom:6px"><button class="btn icon" data-act="mm" data-n="-1" aria-label="Voriger Monat">${icon('left')}</button><b>${MON[first.getMonth()]} ${first.getFullYear()}</b><button class="btn icon" data-act="mm" data-n="1" aria-label="Nächster Monat">${icon('right')}</button></div><div class="mini">`;
+  h += WD.slice(1).map(w => `<div class="wd">${w}</div>`).join('');
+  for (let i = 0; i < 42; i++) {
+    const d = addDays(start, i);
+    const cls = [parse(d).getMonth() !== first.getMonth() ? 'out' : '', monday(d) === ui.week ? 'wk' : '', d === t ? 'td' : '', vac.has(d) ? 'vac' : ''].join(' ');
+    h += `<button class="${cls}" data-act="mm-day" data-d="${d}">${parse(d).getDate()}</button>`;
+  }
+  return h + '</div>';
+}
+
+/* ---------- Ansicht: Unterricht (Stoffverteilung) ---------- */
+function vUnterricht() {
+  const courses = D.courses;
+  if (!courses.length) return pageHead('Unterricht') + `<div class="card empty">Noch keine Kurse. Lege sie unter „Einstellungen“ an.</div>`;
+  ui.courseId = courseById(ui.courseId) ? ui.courseId : courses[0].id;
+  const c = courseById(ui.courseId); const pl = planOf(c);
+  const chips = `<div class="chips">${courses.map(x => `<button class="chip c-${x.color} ${x.id === c.id ? '' : 'off'}" data-act="pick-course" data-c="${x.id}"><i></i>${esc(cname(x))}</button>`).join('')}</div>`;
+  const doneCount = c.units.reduce((n, u) => n + u.lessons.filter(l => l.done).reduce((m, l) => m + (l.length || 1), 0), 0);
+  const t = todayIso();
+  let lastMonth = '';
+  const dist = pl.occ.map(o => {
+    const mo = o.date.slice(0, 7); let sep = '';
+    if (mo !== lastMonth) { lastMonth = mo; sep = `<div class="sep">${MON[parse(o.date).getMonth()]} ${parse(o.date).getFullYear()}</div>`; }
+    const cur = ui.openLesson && o.lesson?.id === ui.openLesson ? 'cur' : '';
+    const past = o.date < t ? 'style="opacity:.75"' : '';
+    return sep + `<div class="d ${o.cancelled ? 'cancel' : ''} ${o.lesson ? '' : 'free'} ${o.lesson?.buffer ? 'buffer' : ''} ${cur}" ${past} data-act="occ" data-c="${c.id}" data-k="${o.key}"><div class="dt"><b>${WD[weekday(o.date)]} ${dm(o.date)}</b><br>${periodOf(o.start) || o.start}. Std</div><div class="t">${o.cancelled ? 'entfällt' : o.lesson ? esc(o.lesson.title || 'Ohne Titel') + (o.lesson.length > 1 ? ` <span class="pill">${o.part}/${o.lesson.length}</span>` : '') : 'frei'}</div><div>${o.lesson?.done ? '<span class="check on" style="width:16px;height:16px"></span>' : ''}</div></div>`;
+  }).join('');
+  const units = c.units.map((u, ui_) => unitHtml(c, u, ui_)).join('');
+  const overflow = pl.planned - pl.available;
+  return pageHead('Unterricht', 'Stoffverteilung', chips) + `
+  <div class="card c-${c.color}"><div class="row" style="justify-content:space-between">
+    <div class="stat"><span><b>${pl.planned}</b> Stunden geplant</span><span><b>${pl.available}</b> Stunden im Kalender</span><span><b>${doneCount}</b> erledigt</span></div>
+    <div class="bar" style="max-width:320px"><i style="width:${pl.planned ? Math.round(doneCount / pl.planned * 100) : 0}%"></i></div>
+  </div>${overflow > 0 ? `<div class="sub" style="margin-top:8px;color:var(--koralle-ink)">Es sind ${overflow} Stunden mehr geplant, als bis Schulschluss im Kalender stehen.</div>` : ''}${!c.slots.length ? `<div class="sub" style="margin-top:8px">Für diesen Kurs ist noch kein Stundenplan eingetragen. Die Termine erscheinen, sobald du unter „Einstellungen → Kurse“ die Stunden anlegst.</div>` : ''}</div>
+  <div class="plan">
+    <div class="card" style="padding:8px"><div class="field-title" style="padding:6px 8px">Termine</div><div class="dist" id="dist">${dist || '<div class="empty">Keine Termine</div>'}</div></div>
+    <div><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>Sequenzen und Stunden</h2><div class="row"><button class="btn sm ghost" data-act="units-toggle" data-c="${c.id}">Alle auf-/zuklappen</button><button class="btn sm primary" data-act="unit-add" data-c="${c.id}">${icon('plus')}Sequenz</button></div></div>
+    ${units || '<div class="card empty">Noch keine Sequenzen. Lege mit „+ Sequenz“ die erste an.</div>'}</div>
+  </div>`;
+}
+function unitHtml(c, u, idx) {
+  const open = ui.openUnits[u.id] ?? !!u.lessons.find(l => l.id === ui.openLesson);
+  const len = u.lessons.reduce((n, l) => n + (l.length || 1), 0);
+  const done = u.lessons.filter(l => l.done).length;
+  const pl = planOf(c);
+  const first = u.lessons.map(l => pl.byLesson[l.id]?.[0]).find(Boolean);
+  const last = [...u.lessons].reverse().map(l => { const a = pl.byLesson[l.id]; return a && a[a.length - 1]; }).find(Boolean);
+  return `<div class="unit c-${c.color}"><div class="uh">
+    <button class="btn icon ghost" data-act="unit-open" data-u="${u.id}" aria-label="auf-/zuklappen">${icon(open ? 'down' : 'right')}</button>
+    <input type="text" id="ut-${u.id}" value="${esc(u.title)}" data-bind="unitTitle" data-c="${c.id}" data-u="${u.id}" aria-label="Name der Sequenz">
+    <span class="pill">${len} Std${first ? ` · ${dm(first.date)}–${dm(last.date)}` : ''}</span>
+    <span class="pill">${done}/${u.lessons.length}</span>
+    <button class="btn icon ghost" data-act="unit-move" data-c="${c.id}" data-u="${u.id}" data-n="-1" ${idx === 0 ? 'disabled' : ''} aria-label="nach oben">${icon('up')}</button>
+    <button class="btn icon ghost" data-act="unit-move" data-c="${c.id}" data-u="${u.id}" data-n="1" ${idx === c.units.length - 1 ? 'disabled' : ''} aria-label="nach unten">${icon('down')}</button>
+    <button class="btn icon ghost" data-act="unit-del" data-c="${c.id}" data-u="${u.id}" aria-label="Sequenz löschen">${icon('trash')}</button>
+  </div>
+  ${open ? u.lessons.map((l, i) => lessonRow(c, u, l, i)).join('') + `<div class="lrow"><span></span><button class="btn sm ghost" style="justify-self:start" data-act="lesson-add" data-c="${c.id}" data-u="${u.id}">${icon('plus')}Stunde</button><span></span></div>` : ''}
+  </div>`;
+}
+function lessonRow(c, u, l, i) {
+  const pl = planOf(c); const occ = pl.byLesson[l.id] || [];
+  const when = occ.length ? occ.map(o => `${WD[weekday(o.date)]} ${dm(o.date)}`).join(', ') : 'kein Termin mehr frei';
+  const open = ui.openLesson === l.id;
+  let h = `<div class="lrow ${open ? 'open' : ''} ${l.buffer ? 'buffer' : ''}"><button class="check ${l.done ? 'on' : ''}" data-act="done" data-c="${c.id}" data-l="${l.id}" aria-label="erledigt"></button>
+    <div class="lt" data-act="lesson-toggle" data-l="${l.id}"><b>${esc(l.title || 'Ohne Titel')}</b><small>${when}${l.content ? ' · ' + esc(stripHtml(l.content).slice(0, 70)) : ''}</small></div>
+    <div class="row" style="gap:4px"><span class="len"><button data-act="len" data-c="${c.id}" data-l="${l.id}" data-n="-1" aria-label="kürzer">−</button>${l.length || 1}&nbsp;Std<button data-act="len" data-c="${c.id}" data-l="${l.id}" data-n="1" aria-label="länger">+</button></span>
+    <button class="btn icon ghost" data-act="lesson-move" data-c="${c.id}" data-l="${l.id}" data-n="-1" aria-label="nach oben">${icon('up')}</button><button class="btn icon ghost" data-act="lesson-move" data-c="${c.id}" data-l="${l.id}" data-n="1" aria-label="nach unten">${icon('down')}</button></div></div>`;
+  if (open) h += `<div class="ledit">${lessonEditor(c, u, l)}</div>`;
+  return h;
+}
+function lessonEditor(c, u, l) {
+  const tb = f => `<div class="row" style="gap:4px;margin-bottom:4px"><span class="field-title" style="flex:1">${f}</span><button class="btn sm ghost" data-act="fmt" data-cmd="bold" aria-label="fett"><b>F</b></button><button class="btn sm ghost" data-act="fmt" data-cmd="insertUnorderedList" aria-label="Aufzählung">• Liste</button></div>`;
+  return `<label class="f">Titel<input type="text" id="lt-${l.id}" value="${esc(l.title)}" data-bind="lessonTitle" data-c="${c.id}" data-l="${l.id}"></label>
+    <div>${tb('Inhalt')}<div contenteditable="true" class="rte" data-rte data-html="${esc(l.content)}" data-bind="lessonHtml" data-f="content" data-c="${c.id}" data-l="${l.id}" data-ph="Was passiert in dieser Stunde?"></div></div>
+    <div>${tb('Material')}<div contenteditable="true" class="rte" data-rte data-html="${esc(l.material)}" data-bind="lessonHtml" data-f="material" data-c="${c.id}" data-l="${l.id}" data-ph="Arbeitsblätter, Buchseiten, Links …"></div></div>
+    <div>${tb('Hausübung')}<div contenteditable="true" class="rte" data-rte data-html="${esc(l.homework)}" data-bind="lessonHtml" data-f="homework" data-c="${c.id}" data-l="${l.id}" data-ph="Hausübung"></div></div>
+    <div class="row" style="justify-content:space-between"><label class="f" style="flex-direction:row">In Sequenz verschieben<select data-bind="lessonUnit" data-c="${c.id}" data-l="${l.id}">${c.units.map(x => `<option value="${x.id}" ${x.id === u.id ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select></label>
+    <button class="btn sm ghost" style="color:var(--koralle-ink)" data-act="lesson-del" data-c="${c.id}" data-l="${l.id}">${icon('trash')}Stunde löschen</button></div>`;
+}
+
+/* ---------- Ansicht: Schüler ---------- */
+function vSchueler() {
+  if (!D.classes.length) return pageHead('Schüler') + `<div class="card empty">Noch keine Klassen. Lege sie unter „Einstellungen“ an.</div>`;
+  ui.classId = classById(ui.classId) ? ui.classId : (courseById(ui.courseId) ? courseById(ui.courseId).classId : D.classes[0].id);
+  const cls = classById(ui.classId);
+  const studs = studentsOf(cls);
+  const courses = D.courses.filter(c => c.classId === cls.id);
+  ui.studentCourse = courses.find(c => c.id === ui.studentCourse) ? ui.studentCourse : courses[0]?.id;
+  const c = courseById(ui.studentCourse);
+  const chips = `<div class="chips">${D.classes.map(k => `<button class="chip c-lila ${k.id === cls.id ? '' : 'off'}" data-act="pick-class" data-id="${k.id}">${esc(k.title)}</button>`).join('')}</div>`;
+  const list = `<div class="card"><div class="head" style="margin-bottom:10px"><h2>Klasse ${esc(cls.title)} <span class="sub">${studs.length} Kinder</span></h2><div class="row"><button class="btn sm" data-act="stud-import" data-id="${cls.id}">Liste einfügen</button><button class="btn sm primary" data-act="stud-add" data-id="${cls.id}">${icon('plus')}Kind</button></div></div>
+    ${studs.length ? `<div class="scroll-x"><table class="st"><thead><tr><th>Nr.</th><th>Nachname</th><th>Vorname</th><th></th></tr></thead><tbody>${studs.map(s => `<tr>
+      <td><input type="text" style="width:52px" id="sn-${s.id}" value="${esc(s.number || '')}" data-bind="stud" data-f="number" data-id="${cls.id}" data-s="${s.id}" aria-label="Nummer"></td>
+      <td><input type="text" id="sl-${s.id}" value="${esc(s.last)}" data-bind="stud" data-f="last" data-id="${cls.id}" data-s="${s.id}" aria-label="Nachname"></td>
+      <td><input type="text" id="sf-${s.id}" value="${esc(s.first)}" data-bind="stud" data-f="first" data-id="${cls.id}" data-s="${s.id}" aria-label="Vorname"></td>
+      <td><button class="btn icon ghost" data-act="stud-del" data-id="${cls.id}" data-s="${s.id}" aria-label="entfernen">${icon('trash')}</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Noch niemand eingetragen. Mit „Liste einfügen“ kannst du eine ganze Klassenliste auf einmal übernehmen.</div>'}</div>`;
+  let ov = '';
+  if (c && studs.length) {
+    const dates = col => [...new Set(Object.values(c.entries[col.id] || {}).flatMap(x => Object.keys(x)))].sort();
+    const attDates = Object.keys(c.attendance).sort();
+    ov = `<div class="card"><div class="head" style="margin-bottom:10px"><h2>Übersicht ${esc(cname(c))}</h2><div class="row"><div class="chips">${courses.map(x => `<button class="chip c-${x.color} ${x.id === c.id ? '' : 'off'}" data-act="pick-scourse" data-c="${x.id}"><i></i>${esc(x.subject)}</button>`).join('')}</div><button class="btn sm ghost" data-act="cols" data-c="${c.id}">${icon('edit')}Spalten</button></div></div>
+    <div class="scroll-x"><table class="st ov"><thead><tr><th>Name</th><th class="grp">Fehlstunden</th>${c.columns.map(col => `<th class="grp">${esc(col.title)}</th>`).join('')}</tr></thead><tbody>
+    ${studs.map(s => {
+      const abs = attDates.filter(d => c.attendance[d][s.id] === 'a').length, exc = attDates.filter(d => c.attendance[d][s.id] === 'e').length, late = attDates.filter(d => c.attendance[d][s.id] === 'l').length;
+      return `<tr><td>${esc(s.last)}${s.first ? ', ' + esc(s.first) : ''}</td><td class="sum">${abs + exc ? `${abs + exc} (${exc} entsch.)` : '–'}${late ? ` · ${late}× spät` : ''}</td>${c.columns.map(col => {
+        const e = c.entries[col.id]?.[s.id] || {};
+        const ds = Object.keys(e).sort();
+        if (!ds.length) return '<td class="sum">–</td>';
+        if (col.type === 'text') return `<td class="sum" style="white-space:normal;min-width:140px">${ds.map(d => `${dm(d)} ${esc(e[d])}`).join('; ')}</td>`;
+        return `<td class="sum">${ds.map(d => { const o = optOf(col, e[d]); return o ? `<span class="sym m-${o.style}" title="${dm(d)}">${esc(o.symbol)}</span>` : ''; }).join(' ')}</td>`;
+      }).join('')}</tr>`;
+    }).join('')}</tbody></table></div><div class="sub" style="margin-top:8px">Einträge machst du unter „Heute“ direkt in der Stunde. Fahre mit der Maus über ein Zeichen, um das Datum zu sehen.</div></div>`;
+  }
+  let gr = '';
+  if (c && studs.length) {
+    gr = c.grades ? `<div class="card"><div class="head" style="margin-bottom:10px"><h2>Noten ${esc(cname(c))}</h2><button class="btn sm ghost" data-act="grades" data-c="${c.id}">${icon('edit')}Bereiche und Gewichtung</button></div><div class="scroll-x">${gradeTable(c, studs)}</div><div class="sub" style="margin-top:8px">Noten mit Komma eingeben, z. B. 2,5. Durchschnitte rechnen sich sofort neu.</div></div>`
+      : `<div class="card row" style="justify-content:space-between"><div><h2>Noten ${esc(cname(c))}</h2><div class="sub">Für diesen Kurs gibt es noch keine Notenliste.</div></div><button class="btn sm primary" data-act="grades-new" data-c="${c.id}">${icon('plus')}Notenliste anlegen</button></div>`;
+  }
+  return pageHead('Schüler', '', chips) + list + gr + ov;
+}
+
+/* ---------- Ansicht: Kinder (Schülerprofil für den Elternsprechtag) ---------- */
+const nkey = s => `${s.first} ${s.last}`.toLowerCase().split(/[\s,]+/).filter(Boolean).sort().join(' ');
+function allChildren() {
+  const m = new Map();
+  D.classes.forEach(k => k.students.forEach(s => {
+    const key = nkey(s); if (!key.trim()) return;
+    if (!m.has(key)) m.set(key, { key, s, recs: [] });
+    m.get(key).recs.push({ cls: k, s });
+  }));
+  return [...m.values()].sort((a, b) => (a.s.last + a.s.first).localeCompare(b.s.last + b.s.first, 'de'));
+}
+const ATT = { a: ['fehlt', 'bad'], e: ['entschuldigt', 'info'], l: ['verspätet', 'mid'] };
+function childCourses(ch) {
+  const out = [];
+  ch.recs.forEach(({ cls, s }) => D.courses.filter(c => c.classId === cls.id).forEach(c => out.push({ c, s, cls })));
+  return out;
+}
+function childProfileHtml(ch, print) {
+  const empty = [];
+  const parts = childCourses(ch).map(({ c, s }) => {
+    let h = '';
+    if (c.grades) {
+      const g = c.grades; const tot = totalGrade(g, s.id);
+      const cats = g.categories.map(cat => {
+        const a = catAvg(g, cat, s.id);
+        const its = cat.items.map(it => g.values[it.id]?.[s.id] != null ? `${esc(it.title)}: <b>${fmtG(g.values[it.id][s.id])}</b>` : '').filter(Boolean);
+        return a == null ? '' : `<dt>${esc(cat.title)} <span class="sub">×${esc(cat.weight)}</span></dt><dd>Ø <b>${fmtG(a)}</b>${its.length ? ' · ' + its.join(', ') : ''}</dd>`;
+      }).join('');
+      h += `<div><div class="field-title">Noten</div>${tot == null ? '<div class="sub">Noch keine Noten</div>' : `<dl class="kv"><dt>Gesamt</dt><dd><span class="sym ${print ? '' : gradeCls(tot)}" style="min-width:38px">${fmtG(tot)}</span></dd>${cats}</dl>`}</div>`;
+    }
+    const att = Object.keys(c.attendance).sort().filter(d => c.attendance[d][s.id]).map(d => `${dm(d)} ${ATT[c.attendance[d][s.id]][0]}`);
+    if (att.length) h += `<div><div class="field-title">Fehlstunden und Verspätungen</div><div>${att.join(' · ')}</div></div>`;
+    const cols = c.columns.map(col => {
+      const e = c.entries[col.id]?.[s.id] || {}; const ds = Object.keys(e).sort();
+      if (!ds.length) return '';
+      if (col.type === 'text') return `<dt>${esc(col.title)}</dt><dd>${ds.map(d => `${dm(d)} ${esc(e[d])}`).join('; ')}</dd>`;
+      const cnt = {}; ds.forEach(d => { const o = optOf(col, e[d]); if (o) cnt[o.id] = (cnt[o.id] || 0) + 1; });
+      const sum = col.options.filter(o => cnt[o.id]).map(o => `<span class="sym ${print ? '' : 'm-' + o.style}">${esc(o.symbol)}</span>&nbsp;${cnt[o.id]}×${o.label ? ' ' + esc(o.label) : ''}`).join(' &nbsp; ');
+      const list = ds.map(d => `${dm(d)}&nbsp;${esc(optOf(col, e[d])?.symbol || '')}`).join(', ');
+      return `<dt>${esc(col.title)}</dt><dd>${sum}<div class="sub" style="font-size:.8rem">${list}</div></dd>`;
+    }).join('');
+    if (cols) h += `<div><div class="field-title">Mitschrift</div><dl class="kv">${cols}</dl></div>`;
+    if (!h) { empty.push(cname(c)); return ''; }
+    return `<div class="sec"><h3><span class="chip c-${c.color}" style="cursor:default"><i></i>${esc(cname(c))}</span> ${esc(c.subject)}</h3><div style="display:grid;gap:10px">${h}</div></div>`;
+  }).join('') + (empty.length ? `<div class="sec sub">Ohne Einträge: ${empty.map(esc).join(', ')}</div>` : '');
+  const note = D.childNotes[ch.key] || '';
+  const classes = [...new Set(ch.recs.map(r => r.cls.title))].join(', ');
+  return `<div class="prof"><div class="row" style="justify-content:space-between;align-items:end"><div><h2 style="font-size:1.35rem">${esc(ch.s.first)} ${esc(ch.s.last)}</h2><div class="sub">${esc(classes)} · ${esc(D.year.title)}</div></div>${print ? `<div class="sub">Stand ${dmy(todayIso())}</div>` : ''}</div>
+    ${parts || '<div class="sec sub">In keinem Kurs eingetragen.</div>'}
+    <div class="sec"><h3>Notizen zum Kind</h3>${print ? `<div style="white-space:pre-wrap">${esc(note) || '—'}</div><div style="margin-top:6mm;border-top:0.6pt solid #999;padding-top:2mm;font-size:9pt;color:#555">Notizen vom Elterngespräch:</div><div style="height:45mm"></div>` : `<textarea id="cn-${ch.key.replace(/\W/g, '_')}" style="min-height:140px" data-bind="childNote" data-k="${esc(ch.key)}" placeholder="z. B. Beobachtungen, Gesprächsnotizen vom Elternsprechtag …">${esc(note)}</textarea>`}</div></div>`;
+}
+function vKinder() {
+  const kids = allChildren();
+  if (!kids.length) return pageHead('Kinder') + `<div class="card empty">Noch keine Kinder eingetragen. Klassenlisten legst du unter „Schüler“ an.</div>`;
+  const q = (ui.kidQuery || '').toLowerCase();
+  const fcls = ui.kidClass || '';
+  const shown = kids.filter(k => (!q || (k.s.first + ' ' + k.s.last).toLowerCase().includes(q)) && (!fcls || k.recs.some(r => r.cls.id === fcls)));
+  const cur = kids.find(k => k.key === ui.kidKey) || shown[0];
+  ui.kidKey = cur?.key;
+  return pageHead('Kinder', `${kids.length} Kinder`, `<button class="btn sm" data-act="kid-print" ${cur ? '' : 'disabled'}>${icon('print')}Dieses Kind drucken</button>`) + `
+  <div class="plan"><div class="card" style="padding:8px;display:grid;gap:8px;align-content:start">
+    <input type="text" id="kid-q" placeholder="Name suchen" value="${esc(ui.kidQuery || '')}" data-bind="kidQuery" aria-label="Name suchen">
+    <select data-bind="kidClass" aria-label="Klasse"><option value="">Alle Klassen</option>${D.classes.filter(k => k.students.length).map(k => `<option value="${k.id}" ${k.id === fcls ? 'selected' : ''}>${esc(k.title)}</option>`).join('')}</select>
+    <div class="dist kid-list" id="kid-list">${shown.map(k => `<div class="d ${cur && k.key === cur.key ? 'cur' : ''}" data-act="kid" data-k="${esc(k.key)}"><div class="t">${esc(k.s.last)}, ${esc(k.s.first)}</div><span class="pill">${esc([...new Set(k.recs.map(r => r.cls.title))].join(' · '))}</span></div>`).join('') || '<div class="empty">Niemand gefunden</div>'}</div></div>
+    <div class="card">${cur ? childProfileHtml(cur) : ''}</div></div>`;
+}
+function printChildren(list) {
+  return list.map((ch, i) => `<div class="sheet portrait ${i < list.length - 1 ? 'page-break' : ''}">${childProfileHtml(ch, true)}</div>`).join('');
+}
+
+/* ---------- Ansicht: Notizen ---------- */
+function vNotizen() {
+  const notes = [...D.notes].sort((a, b) => (b.updated || '').localeCompare(a.updated || ''));
+  const n = notes.find(x => x.id === ui.noteId) || notes[0];
+  return pageHead('Notizen', '', `<button class="btn sm primary" data-act="note-add">${icon('plus')}Notiz</button>`) + `
+  <div class="plan"><div class="card" style="padding:8px">${notes.length ? notes.map(x => `<div class="dist"><div class="d ${n && x.id === n.id ? 'cur' : ''}" style="grid-template-columns:1fr auto" data-act="note-pick" data-id="${x.id}"><div class="t"><b>${esc(x.title || 'Ohne Titel')}</b><br><span class="sub" style="font-size:.78rem">${x.updated ? dmy(x.updated.slice(0, 10)) : ''}</span></div></div></div>`).join('') : '<div class="empty">Noch keine Notizen</div>'}</div>
+  <div class="card">${n ? `<div style="display:grid;gap:10px"><input type="text" id="nt-${n.id}" style="font-family:var(--font-display);font-size:1.15rem;border:0;padding:4px 0" value="${esc(n.title)}" data-bind="noteTitle" data-id="${n.id}" placeholder="Titel">
+    <div class="row" style="gap:4px"><button class="btn sm ghost" data-act="fmt" data-cmd="bold"><b>F</b></button><button class="btn sm ghost" data-act="fmt" data-cmd="insertUnorderedList">• Liste</button><span style="flex:1"></span><button class="btn sm ghost" style="color:var(--koralle-ink)" data-act="note-del" data-id="${n.id}">${icon('trash')}Löschen</button></div>
+    <div contenteditable="true" class="rte" style="min-height:320px" data-rte data-html="${esc(n.content)}" data-bind="noteHtml" data-id="${n.id}" data-ph="Notiz schreiben …"></div></div>` : '<div class="empty">Lege links oben eine neue Notiz an.</div>'}</div></div>`;
+}
+
+/* ---------- Ansicht: Erinnerungen ---------- */
+function vErinnerungen() {
+  const open = D.reminders.filter(r => !r.done).sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
+  const done = D.reminders.filter(r => r.done);
+  const row = r => `<div class="lrow" style="grid-template-columns:28px 1fr auto auto"><button class="check ${r.done ? 'on' : ''}" data-act="rem-done" data-id="${r.id}" aria-label="erledigt"></button>
+    <input type="text" id="rt-${r.id}" style="border:0;background:transparent" value="${esc(r.text)}" data-bind="remText" data-id="${r.id}" aria-label="Text">
+    <input type="date" id="rd-${r.id}" value="${r.date || ''}" data-bind="remDate" data-id="${r.id}" style="${r.date && r.date < todayIso() && !r.done ? 'color:var(--koralle-ink)' : ''}" aria-label="Datum">
+    <button class="btn icon ghost" data-act="rem-del" data-id="${r.id}" aria-label="löschen">${icon('trash')}</button></div>`;
+  return pageHead('Erinnerungen') + `<div class="card" style="padding:0;overflow:hidden">
+    <form class="lrow" style="grid-template-columns:28px 1fr auto auto;border-top:0" data-form="rem"><span></span><input type="text" id="rem-new" placeholder="Neue Erinnerung, z. B. Elternbrief kopieren" required><input type="date" id="rem-new-date" value="${todayIso()}"><button class="btn sm primary">${icon('plus')}Anlegen</button></form>
+    ${open.map(row).join('') || '<div class="empty">Alles erledigt.</div>'}</div>
+    ${done.length ? `<details class="card"><summary class="sub" style="cursor:pointer">${done.length} erledigt</summary>${done.map(row).join('')}</details>` : ''}`;
+}
+
+/* ---------- Ansicht: Drucken ---------- */
+function vDrucken() {
+  const P = ui.print;
+  P.week ||= schoolWeek();
+  ui.classId = classById(ui.classId) ? ui.classId : D.classes[0]?.id;
+  const cls = classById(ui.classId);
+  const courses = D.courses.filter(c => c.classId === cls?.id);
+  if (!courses.find(c => c.id === P.courseId)) P.courseId = courses[0]?.id;
+  const c = courseById(P.courseId);
+  if (c && P.colId !== 'att' && P.colId !== 'noten' && !c.columns.find(x => x.id === P.colId)) P.colId = c.columns[0]?.id || 'att';
+  let opts;
+  if (P.kind === 'liste') {
+    opts = `<label class="f">Klasse<select data-bind="print" data-f="class">${D.classes.map(k => `<option value="${k.id}" ${k.id === cls?.id ? 'selected' : ''}>${esc(k.title)}</option>`).join('')}</select></label>
+      <label class="f">Art der Liste<select data-bind="print" data-f="mode">
+        <option value="blanko" ${P.mode === 'blanko' ? 'selected' : ''}>Blanko mit Namen</option>
+        <option value="eintraege" ${P.mode === 'eintraege' ? 'selected' : ''}>Mit Einträgen</option>
+        <option value="leer" ${P.mode === 'leer' ? 'selected' : ''}>Leere Vorlage ohne Namen</option></select></label>
+      <label class="f">Überschrift<input type="text" id="p-title" value="${esc(P.title)}" data-bind="print" data-f="title" placeholder="z. B. Hausübungen Semester 1"></label>
+      ${P.mode === 'eintraege' ? `<label class="f">Kurs<select data-bind="print" data-f="course">${courses.map(x => `<option value="${x.id}" ${x.id === P.courseId ? 'selected' : ''}>${esc(cname(x))}</option>`).join('')}</select></label>
+        <label class="f">Spalte<select data-bind="print" data-f="col"><option value="att" ${P.colId === 'att' ? 'selected' : ''}>Anwesenheit</option>${c?.grades ? `<option value="noten" ${P.colId === 'noten' ? 'selected' : ''}>Noten</option>` : ''}${(c?.columns || []).map(x => `<option value="${x.id}" ${x.id === P.colId ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select></label>`
+      : `<label class="f">Anzahl leerer Spalten<input type="number" id="p-cols" min="1" max="30" value="${P.cols}" data-bind="print" data-f="cols"></label>
+        <label class="f">Spaltenköpfe (mit Komma getrennt, optional)<input type="text" id="p-heads" value="${esc(P.headers)}" data-bind="print" data-f="headers" placeholder="z. B. HÜ 1, HÜ 2, Test"></label>`}
+      ${P.mode === 'leer' ? `<label class="f">Anzahl Zeilen<input type="number" id="p-rows" min="1" max="60" value="${P.rows}" data-bind="print" data-f="rows"></label>` : ''}
+      <label class="f">Ausrichtung<select data-bind="print" data-f="orient"><option value="portrait" ${P.orient === 'portrait' ? 'selected' : ''}>Hochformat</option><option value="landscape" ${P.orient === 'landscape' ? 'selected' : ''}>Querformat</option></select></label>`;
+  } else if (P.kind === 'kinder') {
+    opts = `<label class="f">Klasse<select data-bind="print" data-f="class">${D.classes.filter(k => k.students.length).map(k => `<option value="${k.id}" ${k.id === cls?.id ? 'selected' : ''}>${esc(k.title)}</option>`).join('')}</select></label>
+      <div class="sub">Für jedes Kind eine A4-Seite mit Noten, Mitschrift, Fehlstunden und Notizen, unten mit Platz für Gesprächsnotizen.</div>`;
+  } else {
+    opts = `<label class="f">Woche<input type="date" id="p-week" value="${P.week}" data-bind="print" data-f="week"></label>
+      <label class="f">Umfang<select data-bind="print" data-f="detail"><option value="voll" ${P.detail === 'voll' ? 'selected' : ''}>Mit Inhalt und Material</option><option value="kurz" ${P.detail === 'kurz' ? 'selected' : ''}>Nur Stundentitel</option></select></label>
+      <div class="sub">Wird auf A4 quer gedruckt. Termine und die Wochennotiz stehen mit drauf.</div>`;
+  }
+  return pageHead('Drucken', '', `<div class="seg"><button class="${P.kind === 'liste' ? 'on' : ''}" data-act="pkind" data-k="liste">Schülerliste</button><button class="${P.kind === 'woche' ? 'on' : ''}" data-act="pkind" data-k="woche">Wochenplan</button><button class="${P.kind === 'kinder' ? 'on' : ''}" data-act="pkind" data-k="kinder">Elternsprechtag</button></div>`) + `
+  <div class="plan" style="grid-template-columns:minmax(240px,300px) minmax(0,1fr)"><div class="card" style="display:grid;gap:12px;align-content:start">${opts}<button class="btn primary" data-act="print">${icon('print')}Drucken</button><div class="sub" style="font-size:.8rem">Im Druckfenster kannst du auch „Als PDF sichern“ wählen.</div></div>
+  <div class="pv">${printHtml()}</div></div>`;
+}
+function printHtml() {
+  const P = ui.print;
+  if (P.kind === 'kinder') { const k = classById(ui.classId); const keys = new Set((k?.students || []).map(nkey)); return printChildren(allChildren().filter(ch => keys.has(ch.key))); }
+  return P.kind === 'liste' ? printList() : printWeek();
+}
+function printList() {
+  const P = ui.print; const cls = classById(ui.classId); const c = courseById(P.courseId);
+  const studs = studentsOf(cls);
+  const heads = P.headers.split(',').map(s => s.trim());
+  const n = Math.max(1, Math.min(30, +P.cols || 10));
+  const blankCols = Array.from({ length: n }, (_, i) => heads[i] || '');
+  const vh = h => h ? `<span class="vlabel">${esc(h)}</span>` : '';
+  const title = P.title || (P.mode === 'eintraege' ? (P.colId === 'att' ? 'Anwesenheit' : P.colId === 'noten' ? 'Noten' : c?.columns.find(x => x.id === P.colId)?.title || 'Liste') : 'Klassenliste');
+  const head = `<div class="ph"><div><h2>${esc(title)}</h2><div style="font-size:10pt;color:#555">${P.mode === 'leer' ? 'Klasse: ______________' : 'Klasse ' + esc(cls?.title || '')}${P.mode === 'eintraege' && c ? ' · ' + esc(c.subject) : ''}</div></div><div class="meta">${esc(D.year.title)}<br>Stand ${dmy(todayIso())}</div></div>`;
+  let body;
+  if (P.mode === 'leer') {
+    const rows = Math.max(1, Math.min(60, +P.rows || 25));
+    body = `<table class="pt lines"><thead><tr><th class="nr">Nr.</th><th style="width:55mm">Name</th>${blankCols.map(h => `<th>${vh(h)}</th>`).join('')}</tr></thead><tbody>${Array.from({ length: rows }, (_, i) => `<tr><td class="nr">${i + 1}</td><td></td>${blankCols.map(() => '<td></td>').join('')}</tr>`).join('')}</tbody></table>`;
+  } else if (P.mode === 'blanko') {
+    body = studs.length ? `<table class="pt lines"><thead><tr><th class="nr">Nr.</th><th style="width:55mm">Name</th>${blankCols.map(h => `<th>${vh(h)}</th>`).join('')}</tr></thead><tbody>${studs.map((s, i) => `<tr><td class="nr">${esc(s.number || i + 1)}</td><td>${esc(s.last)}${s.first ? ', ' + esc(s.first) : ''}</td>${blankCols.map(() => '<td></td>').join('')}</tr>`).join('')}</tbody></table>` : '<p>Für diese Klasse sind noch keine Namen eingetragen.</p>';
+  } else {
+    if (!c) body = '<p>Für diese Klasse gibt es keinen Kurs.</p>';
+    else if (P.colId === 'noten' && c.grades) body = gradeTable(c, studs, true);
+    else {
+      let dates, val;
+      if (P.colId === 'att') {
+        dates = Object.keys(c.attendance).filter(d => Object.keys(c.attendance[d]).length).sort();
+        val = (s, d) => ({ a: 'f', e: 'e', l: 's' }[c.attendance[d]?.[s.id]] || '');
+      } else {
+        const col = c.columns.find(x => x.id === P.colId);
+        dates = col ? [...new Set(Object.values(c.entries[col.id] || {}).flatMap(x => Object.keys(x)))].sort() : [];
+        val = (s, d) => { const v = c.entries[col.id]?.[s.id]?.[d]; return col.type === 'text' ? esc(v || '') : esc(optOf(col, v)?.symbol || ''); };
+      }
+      body = `<table class="pt"><thead><tr><th class="nr">Nr.</th><th style="width:50mm">Name</th>${dates.map(d => `<th style="text-align:center">${dm(d)}</th>`).join('')}${dates.length ? '' : '<th>Noch keine Einträge</th>'}</tr></thead><tbody>${studs.map((s, i) => `<tr><td class="nr">${esc(s.number || i + 1)}</td><td>${esc(s.last)}${s.first ? ', ' + esc(s.first) : ''}</td>${dates.map(d => `<td style="text-align:center">${val(s, d)}</td>`).join('')}${dates.length ? '' : '<td></td>'}</tr>`).join('')}</tbody></table>${P.colId === 'att' ? '<p style="font-size:8pt;color:#555">f = fehlt · e = entschuldigt · s = verspätet</p>' : ''}`;
+    }
+  }
+  return `<div class="sheet ${P.orient}">${head}${body}</div>`;
+}
+function printWeek() {
+  const P = ui.print; const wk = monday(P.week || todayIso());
+  const days = D.year.days.map(w => addDays(wk, w - 1)); const vac = vacSet();
+  const occ = allOcc().filter(o => o.date >= wk && o.date <= addDays(wk, 6));
+  let h = `<div class="ph"><div><h2>Wochenplan KW ${kw(wk)}</h2><div style="font-size:10pt;color:#555">${dmy(wk)} – ${dmy(addDays(wk, 4))}</div></div><div class="meta">${esc(D.year.title)}</div></div>`;
+  h += `<table class="pt wp"><thead><tr><th class="pp">Std.</th>${days.map(d => `<th>${WDL[weekday(d)]} ${dm(d)}</th>`).join('')}</tr></thead><tbody>`;
+  h += `<tr><td class="pp">Termine</td>${days.map(d => `<td>${eventsOn(d).map(e => `<div>${e.startTime && e.start === d ? e.startTime + ' ' : ''}${esc(e.title)}</div>`).join('')}</td>`).join('')}</tr>`;
+  D.periods.forEach(p => {
+    const any = occ.some(o => periodOf(o.start) === p.n);
+    if (!any && p.n > 6) return;
+    h += `<tr><td class="pp"><b>${p.n}</b><br>${p.start}<br>${p.end}</td>${days.map(d => {
+      if (vac.has(d)) return '<td style="background:#f3f3f3"></td>';
+      const here = occ.filter(o => o.date === d && periodOf(o.start) === p.n);
+      if (!here.length) return '<td></td>';
+      return here.map(o => {
+        const l = o.lesson;
+        if (o.cancelled) return `<td class="lesscell c-${o.course.color}"><span class="cs">${esc(cname(o.course))}</span><i>entfällt</i></td>`;
+        return `<td class="lesscell c-${o.course.color}"><span class="cs">${esc(cname(o.course))}${o.room ? ' · ' + esc(o.room) : ''}</span>${l ? `<b>${esc(l.title)}</b>${P.detail === 'voll' ? `${l.content ? `<div class="ct">${sanitize(l.content)}</div>` : ''}${l.material ? `<div class="ct"><i>Material:</i> ${sanitize(l.material)}</div>` : ''}${l.homework ? `<div class="ct"><i>HÜ:</i> ${sanitize(l.homework)}</div>` : ''}` : ''}` : ''}</td>`;
+      }).join('');
+    }).join('')}</tr>`;
+  });
+  h += '</tbody></table>';
+  const note = D.weekNotes[wk];
+  if (note) h += `<p style="font-size:9pt;margin-top:4mm"><b>Wochennotiz:</b> ${esc(note)}</p>`;
+  return `<div class="sheet landscape">${h}</div>`;
+}
+function doPrint() {
+  const P = ui.print;
+  $('#page-style').textContent = `@page{size:A4 ${P.kind === 'woche' ? 'landscape' : P.kind === 'kinder' ? 'portrait' : P.orient};margin:12mm}`;
+  $('#print-area').innerHTML = printHtml();
+  setTimeout(() => window.print(), 50);
+}
+
+/* ---------- Ansicht: Einstellungen ---------- */
+function vEinstellungen() {
+  const y = D.year;
+  const tab = ui.setTab || 'kurse';
+  const tabs = `<div class="seg">${[['kurse', 'Kurse & Stundenplan'], ['klassen', 'Klassen'], ['termine', 'Termine & Ferien'], ['jahr', 'Schuljahr'], ['daten', 'Daten']].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-act="settab" data-k="${k}">${t}</button>`).join('')}</div>`;
+  let body = '';
+  if (tab === 'jahr') {
+    body = `<div class="card" style="display:grid;gap:14px;max-width:720px"><div class="grid2">
+      <label class="f">Bezeichnung<input type="text" id="y-title" value="${esc(y.title)}" data-bind="year" data-f="title"></label>
+      <label class="f">Erster Schultag<input type="date" id="y-start" value="${y.start}" data-bind="year" data-f="start"></label>
+      <label class="f">Letzter Schultag<input type="date" id="y-end" value="${y.end}" data-bind="year" data-f="end"></label></div>
+      <div><div class="field-title">Schultage</div><div class="chips">${[1, 2, 3, 4, 5, 6].map(d => `<button class="chip c-tuerkis ${y.days.includes(d) ? '' : 'off'}" data-act="yday" data-d="${d}">${WDL[d]}</button>`).join('')}</div></div>
+      <div><div class="field-title" style="margin-bottom:6px">Stundenraster</div><div style="display:grid;gap:6px">${D.periods.map((p, i) => `<div class="row"><span style="width:60px">${p.n}. Std</span><input type="time" id="ps-${i}" value="${p.start}" data-bind="period" data-i="${i}" data-f="start"><span>bis</span><input type="time" id="pe-${i}" value="${p.end}" data-bind="period" data-i="${i}" data-f="end"><button class="btn icon ghost" data-act="period-del" data-i="${i}" aria-label="entfernen">${icon('trash')}</button></div>`).join('')}</div>
+      <button class="btn sm" style="margin-top:8px" data-act="period-add">${icon('plus')}Stunde</button></div></div>`;
+  } else if (tab === 'klassen') {
+    body = `<div class="card" style="max-width:720px"><div style="display:grid;gap:8px">${D.classes.map(k => `<div class="row"><input type="text" id="kc-${k.id}" value="${esc(k.title)}" data-bind="classTitle" data-id="${k.id}" aria-label="Klassenname"><span class="sub">${k.students.length} Kinder · ${D.courses.filter(c => c.classId === k.id).length} Kurse</span><span style="flex:1"></span><button class="btn icon ghost" data-act="class-del" data-id="${k.id}" aria-label="Klasse löschen">${icon('trash')}</button></div>`).join('')}</div>
+      <form class="row" style="margin-top:14px" data-form="class"><input type="text" id="class-new" placeholder="Neue Klasse, z. B. 2A" required><button class="btn sm primary">${icon('plus')}Klasse anlegen</button></form></div>`;
+  } else if (tab === 'termine') {
+    const evs = [...D.events].sort((a, b) => (a.start + (a.startTime || '')).localeCompare(b.start + (b.startTime || '')));
+    const filt = ui.evFilter || 'vacation';
+    const shown = evs.filter(e => filt === 'all' || (filt === 'vacation' ? e.type === 'vacation' : e.type !== 'vacation'));
+    body = `<div class="card" style="max-width:900px"><div class="row" style="justify-content:space-between;margin-bottom:10px"><div class="seg">${[['vacation', 'Ferien & schulfrei'], ['other', 'Termine'], ['all', 'Alle']].map(([k, t]) => `<button class="${filt === k ? 'on' : ''}" data-act="evfilter" data-k="${k}">${t}</button>`).join('')}</div><button class="btn sm primary" data-act="event-new" data-d="${todayIso()}" data-t="${filt === 'vacation' ? 'vacation' : 'school'}">${icon('plus')}Neu</button></div>
+      <div style="display:grid;gap:2px">${shown.map(e => `<div class="d row" style="padding:6px 4px;border-bottom:1px solid var(--line);cursor:pointer" data-act="event" data-id="${e.id}"><span style="width:170px;font-variant-numeric:tabular-nums" class="sub">${dmy(e.start)}${e.end && e.end !== e.start ? ' – ' + dmy(e.end) : ''}${e.startTime ? ' · ' + e.startTime : ''}</span><span class="evt ${e.type}" style="width:auto">${esc(EVENT_TYPES[e.type] || '')}</span><b style="font-weight:600">${esc(e.title)}</b></div>`).join('') || '<div class="empty">Keine Einträge</div>'}</div>
+      <p class="sub">Ferien und schulfreie Tage werden in der Stundenverteilung übersprungen.</p></div>`;
+  } else if (tab === 'daten') {
+    const fsa = !!window.showSaveFilePicker;
+    body = `<div class="grid2" style="max-width:1000px">
+      <div class="card" style="display:grid;gap:10px;align-content:start"><h2>Auf OneDrive sichern</h2>
+        <p class="sub" style="margin:0">Alle Daten liegen in einer Datei „${FILE_NAME}“. Die App merkt sich deine Änderungen auf diesem Gerät, sichere sie aber regelmäßig auf OneDrive. Dann hast du sie auch auf dem anderen Gerät.</p>
+        <ul class="sub" style="margin:0;padding-left:18px"><li><b>iPad:</b> „Sichern“ tippen → „In Dateien sichern“ → OneDrive → Ordner wählen → „Sichern“ (vorhandene Datei ersetzen).</li><li><b>Mac:</b> ${fsa ? 'Beim ersten Mal wählst du den OneDrive-Ordner, danach speichert „Sichern“ direkt dorthin.' : 'Am besten öffnest du die App in Microsoft Edge oder Chrome. Dann speichert „Sichern“ direkt in deinen OneDrive-Ordner.'}</li><li><b>Wechsel zwischen Geräten:</b> Auf dem anderen Gerät „Laden“ und die Datei aus OneDrive wählen.</li></ul>
+        <div class="row"><button class="btn primary" data-act="save">${icon('cloud')}Jetzt sichern</button><button class="btn" data-act="open">${icon('open')}Datei laden</button>${fsa ? '<button class="btn ghost sm" data-act="forget-file">Anderen Speicherort wählen</button>' : ''}</div></div>
+      <div class="card" style="display:grid;gap:10px;align-content:start"><h2>Datenschutz</h2><p class="sub" style="margin:0">Schülernamen, Noten und Anwesenheiten bleiben auf deinen Geräten und in deinem OneDrive. Die App schickt nichts an andere Server.</p>
+        <h2 style="margin-top:8px">Auf diesem Gerät löschen</h2><p class="sub" style="margin:0">Entfernt alle Daten aus diesem Browser. Deine Datei auf OneDrive bleibt erhalten.</p><div><button class="btn sm" style="color:var(--koralle-ink)" data-act="wipe">${icon('trash')}Daten auf diesem Gerät löschen</button></div></div></div>`;
+  } else {
+    body = `<div style="display:grid;gap:12px">${D.courses.map(c => courseCard(c)).join('')}
+      <div><button class="btn primary" data-act="course-add">${icon('plus')}Kurs anlegen</button></div></div>`;
+  }
+  return pageHead('Einstellungen', '', tabs) + body;
+}
+function courseCard(c) {
+  const open = ui.openCourse === c.id;
+  const slotTxt = c.slots.map(s => `${WD[s.weekday]} ${periodOf(s.start) || s.start}.`).join(', ') || 'kein Stundenplan';
+  if (!open) return `<div class="card c-${c.color} row" style="cursor:pointer" data-act="course-open" data-c="${c.id}"><span class="chip c-${c.color}"><i></i>${esc(cname(c))}</span><span>${esc(c.subject)}</span><span class="sub">${slotTxt}</span><span style="flex:1"></span>${icon('right', '')}</div>`;
+  return `<div class="card c-${c.color}" style="display:grid;gap:14px">
+    <div class="row" style="justify-content:space-between"><span class="chip c-${c.color}"><i></i>${esc(cname(c))}</span><button class="btn sm ghost" data-act="course-open" data-c="">Schließen</button></div>
+    <div class="grid2">
+      <label class="f">Klasse<select data-bind="course" data-c="${c.id}" data-f="classId">${D.classes.map(k => `<option value="${k.id}" ${k.id === c.classId ? 'selected' : ''}>${esc(k.title)}</option>`).join('')}</select></label>
+      <label class="f">Fach<input type="text" id="cs-${c.id}" value="${esc(c.subject)}" data-bind="course" data-c="${c.id}" data-f="subject"></label>
+      <label class="f">Kurzname<input type="text" id="cn-${c.id}" value="${esc(c.short)}" data-bind="course" data-c="${c.id}" data-f="short"></label>
+    </div>
+    <div><div class="field-title">Farbe</div><div class="chips">${COLORS.map(k => `<button class="chip c-${k} ${k === c.color ? '' : 'off'}" data-act="course-color" data-c="${c.id}" data-k="${k}"><i></i>${COLOR_NAMES[k]}</button>`).join('')}</div></div>
+    <div><div class="field-title" style="margin-bottom:6px">Stundenplan</div>
+      <div style="display:grid;gap:8px">${c.slots.map((s, i) => `<div class="row" style="gap:6px">
+        <select data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="weekday" aria-label="Wochentag">${D.year.days.map(d => `<option value="${d}" ${d === s.weekday ? 'selected' : ''}>${WDL[d]}</option>`).join('')}</select>
+        <select data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="period" aria-label="Stunde">${D.periods.map(p => `<option value="${p.n}" ${p.start === s.start ? 'selected' : ''}>${p.n}. Std (${p.start})</option>`).join('')}</select>
+        <select data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="every" aria-label="Rhythmus"><option value="1" ${(s.every || 1) === 1 ? 'selected' : ''}>jede Woche</option><option value="2" ${s.every === 2 ? 'selected' : ''}>alle 2 Wochen</option></select>
+        <span class="sub">ab</span><input type="date" id="sf-${c.id}-${i}" value="${s.from || D.year.start}" data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="from" aria-label="ab">
+        <span class="sub">bis</span><input type="date" id="su-${c.id}-${i}" value="${s.until || ''}" data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="until" aria-label="bis (leer = Schulschluss)">
+        <input type="text" id="sr-${c.id}-${i}" style="width:90px" placeholder="Raum" value="${esc(s.room || '')}" data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="room" aria-label="Raum">
+        <button class="btn icon ghost" data-act="slot-del" data-c="${c.id}" data-i="${i}" aria-label="entfernen">${icon('trash')}</button></div>`).join('')}</div>
+      <button class="btn sm" style="margin-top:8px" data-act="slot-add" data-c="${c.id}">${icon('plus')}Stunde im Stundenplan</button></div>
+    <div><div class="field-title" style="margin-bottom:6px">Zusätzliche Einzelstunden</div>
+      <div class="chips">${c.extra.map((x, i) => `<button class="chip c-${c.color}" data-act="extra-del" data-c="${c.id}" data-i="${i}" title="Entfernen">${WD[weekday(x.date)]} ${dm(x.date)} ${x.start} ✕</button>`).join('') || '<span class="sub">keine</span>'}</div>
+      <form class="row" style="margin-top:8px" data-form="extra" data-c="${c.id}"><input type="date" id="xd-${c.id}" required><select id="xp-${c.id}" aria-label="Stunde">${D.periods.map(p => `<option value="${p.n}">${p.n}. Std (${p.start})</option>`).join('')}</select><button class="btn sm">${icon('plus')}Einzelstunde</button></form></div>
+    ${c.cancelled.length ? `<div><div class="field-title">Entfallene Stunden</div><div class="chips">${c.cancelled.slice().sort().map(k => `<button class="chip c-grau" data-act="uncancel" data-c="${c.id}" data-k="${k}" title="Wieder einplanen">${WD[weekday(k.slice(0, 10))]} ${dm(k.slice(0, 10))} ${k.slice(11)} ✕</button>`).join('')}</div></div>` : ''}
+    <div><button class="btn sm ghost" style="color:var(--koralle-ink)" data-act="course-del" data-c="${c.id}">${icon('trash')}Kurs löschen</button></div></div>`;
+}
+
+/* ---------- Spalten (Mitschrift) ---------- */
+const COL_TEMPLATES = {
+  mitarbeit: { title: 'Mitarbeit', type: 'symbols', options: [['+', 'good'], ['~', 'mid'], ['−', 'bad']] },
+  hue: { title: 'Hausübung', type: 'symbols', options: [['✓', 'good'], ['½', 'mid'], ['✗', 'bad']] },
+  material: { title: 'Material', type: 'symbols', options: [['✓', 'good'], ['✗', 'bad']] },
+  note: { title: 'Note', type: 'symbols', options: [['1', 'good'], ['2', 'good'], ['3', 'mid'], ['4', 'mid'], ['5', 'bad']] },
+  text: { title: 'Bemerkung', type: 'text', options: [] },
+};
+function colsDialog(cid) {
+  const c = courseById(cid);
+  const body = () => `<div class="dh"><div><div class="kicker">${esc(cname(c))}</div><h2>Spalten der Mitschrift</h2></div><button class="btn icon ghost" data-act="close" aria-label="Schließen">${icon('x')}</button></div>
+    ${c.columns.map((col, i) => `<div class="card" style="display:grid;gap:8px;padding:12px">
+      <div class="row"><input type="text" id="ct-${col.id}" value="${esc(col.title)}" data-bind="colTitle" data-c="${c.id}" data-col="${col.id}" style="flex:1" aria-label="Spaltenname">
+      <button class="btn icon ghost" data-act="col-move" data-c="${c.id}" data-col="${col.id}" data-n="-1" ${i === 0 ? 'disabled' : ''} aria-label="nach oben">${icon('up')}</button>
+      <button class="btn icon ghost" data-act="col-del" data-c="${c.id}" data-col="${col.id}" aria-label="Spalte löschen">${icon('trash')}</button></div>
+      ${col.type === 'text' ? '<div class="sub">Freitext</div>' : `<div style="display:grid;gap:6px">${col.options.map(o => `<div class="optrow"><input type="text" id="os-${o.id}" value="${esc(o.symbol)}" maxlength="4" data-bind="optSym" data-c="${c.id}" data-col="${col.id}" data-o="${o.id}" aria-label="Zeichen"><span class="sym m-${o.style}" style="justify-self:start">${esc(o.symbol)}</span><select data-bind="optStyle" data-c="${c.id}" data-col="${col.id}" data-o="${o.id}" aria-label="Farbe">${Object.entries(MARK_STYLES).map(([k, t]) => `<option value="${k}" ${k === o.style ? 'selected' : ''}>${t}</option>`).join('')}</select><button class="btn icon ghost" data-act="opt-del" data-c="${c.id}" data-col="${col.id}" data-o="${o.id}" aria-label="entfernen">${icon('x')}</button></div>`).join('')}
+      <button class="btn sm ghost" style="justify-self:start" data-act="opt-add" data-c="${c.id}" data-col="${col.id}">${icon('plus')}Zeichen</button></div>`}</div>`).join('')}
+    <div><div class="field-title" style="margin-bottom:6px">Neue Spalte</div><div class="chips">${Object.entries(COL_TEMPLATES).map(([k, t]) => `<button class="chip c-tuerkis" data-act="col-add" data-c="${c.id}" data-k="${k}">+ ${t.title}</button>`).join('')}</div></div>
+    <p class="sub">Ein Tipp in der Tabelle wechselt der Reihe nach durch die Zeichen, danach ist das Feld wieder leer.</p>`;
+  drawer(body, 'cols');
+}
+
+/* ---------- Drawer, Dialoge, Toast ---------- */
+let drawerFn = null;
+function drawer(fn, kind) {
+  drawerFn = fn;
+  $('#layer').innerHTML = `<div class="scrim" data-act="scrim"><div class="drawer" role="dialog" aria-modal="true">${fn()}</div></div>`;
+  afterRender();
+}
+function refreshDrawer() { if (drawerFn && $('#layer .drawer')) { const sc = $('#layer .drawer').scrollTop; $('#layer .drawer').innerHTML = drawerFn(); afterRender(); $('#layer .drawer').scrollTop = sc; } }
+function closeLayer() { drawerFn = null; $('#layer').innerHTML = ''; }
+let confirmFn = null;
+function confirmBox(title, text, okLabel, fn) {
+  confirmFn = fn;
+  $('#layer').insertAdjacentHTML('beforeend', `<div class="scrim" id="confirm" style="justify-content:center;align-items:center"><div class="dialog" role="alertdialog"><h2>${esc(title)}</h2><p class="sub" style="margin:0">${esc(text)}</p><div class="row" style="justify-content:flex-end"><button class="btn" data-act="confirm-no">Abbrechen</button><button class="btn warn" data-act="confirm-yes">${esc(okLabel)}</button></div></div></div>`);
+}
+let toastT = null;
+function toast(t) { $$('.toast').forEach(x => x.remove()); const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.append(d); clearTimeout(toastT); toastT = setTimeout(() => d.remove(), 3200); }
+
+function occDrawer(cid, key) {
+  const c = courseById(cid);
+  const body = () => {
+    const o = planOf(c).byKey[key];
+    if (!o) return `<div class="dh"><h2>Stunde nicht gefunden</h2><button class="btn icon ghost" data-act="close">${icon('x')}</button></div>`;
+    const l = o.lesson, u = o.unit;
+    return `<div class="dh"><div><span class="chip c-${c.color}"><i></i>${esc(cname(c))}</span><h2 style="margin-top:8px">${longDate(o.date)}</h2><div class="sub">${periodOf(o.start) || ''}. Stunde · ${o.start}–${o.end}${o.room ? ' · ' + esc(o.room) : ''}</div></div><button class="btn icon ghost" data-act="close" aria-label="Schließen">${icon('x')}</button></div>
+    ${o.cancelled ? `<div class="card" style="background:var(--soft)"><b>Diese Stunde entfällt.</b><div class="sub">Der Stoff rückt in die nächste Stunde weiter.</div><button class="btn sm" style="margin-top:8px" data-act="uncancel" data-c="${c.id}" data-k="${key}">Doch stattfinden lassen</button></div>`
+      : l ? `<div class="unitline">${esc(u.title)}${l.length > 1 ? ` · Teil ${o.part} von ${l.length}` : ''}</div><div class="row"><button class="check ${l.done ? 'on' : ''}" data-act="done" data-c="${c.id}" data-l="${l.id}" aria-label="erledigt"></button><span class="sub">${l.done ? 'Erledigt' : 'Noch offen'}</span></div>${lessonEditor(c, u, l)}`
+      : `<div class="sub">Für diesen Termin ist im Stoffplan noch keine Stunde vorgesehen.</div><button class="btn sm" data-act="go-plan" data-c="${c.id}">Zur Unterrichtsplanung</button>`}
+    ${!o.cancelled ? `<div class="row" style="border-top:1px solid var(--line);padding-top:12px"><button class="btn sm" data-act="cancel-occ" data-c="${c.id}" data-k="${key}">Stunde entfällt</button><button class="btn sm ghost" data-act="occ-today" data-c="${c.id}" data-k="${key}">In „Heute“ öffnen</button></div>` : ''}`;
+  };
+  drawer(body, 'occ');
+}
+function eventDrawer(id, date, type) {
+  let e = D.events.find(x => x.id === id);
+  const isNew = !e;
+  if (isNew) e = { id: uid(), type: type || 'school', title: '', start: date || todayIso(), end: date || todayIso(), startTime: null, endTime: null, note: '' };
+  const draft = { ...e };
+  const body = () => `<div class="dh"><h2>${isNew ? 'Neuer Termin' : 'Termin'}</h2><button class="btn icon ghost" data-act="close" aria-label="Schließen">${icon('x')}</button></div>
+    <form data-form="event" data-id="${e.id}" style="display:grid;gap:12px">
+      <label class="f">Titel<input type="text" id="ev-title" name="title" value="${esc(draft.title)}" required></label>
+      <label class="f">Art<select name="type">${Object.entries(EVENT_TYPES).map(([k, t]) => `<option value="${k}" ${k === draft.type ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+      <div class="grid2" style="grid-template-columns:1fr 1fr"><label class="f">Von<input type="date" id="ev-start" name="start" value="${draft.start}" required></label><label class="f">Bis<input type="date" id="ev-end" name="end" value="${draft.end || draft.start}"></label></div>
+      <div class="grid2" style="grid-template-columns:1fr 1fr"><label class="f">Beginn (leer = ganztägig)<input type="time" id="ev-st" name="startTime" value="${draft.startTime || ''}"></label><label class="f">Ende<input type="time" id="ev-et" name="endTime" value="${draft.endTime || ''}"></label></div>
+      <label class="f">Notiz<textarea id="ev-note" name="note">${esc(draft.note || '')}</textarea></label>
+      <div class="row" style="justify-content:space-between"><button class="btn primary">${isNew ? 'Anlegen' : 'Speichern'}</button>${isNew ? '' : `<button type="button" class="btn sm ghost" style="color:var(--koralle-ink)" data-act="event-del" data-id="${e.id}">${icon('trash')}Löschen</button>`}</div>
+    </form>`;
+  drawer(body, 'event');
+}
+
+/* ---------- Ereignisse ---------- */
+function moveIn(arr, item, n) { const i = arr.indexOf(item); const j = i + n; if (i < 0 || j < 0 || j >= arr.length) return; arr.splice(i, 1); arr.splice(j, 0, item); }
+const ACT = {
+  go: el => { ui.view = el.dataset.v; try { history.replaceState(null, '', '#' + ui.view); } catch (e) { } closeLayer(); render(); $('#main').scrollTop = 0; },
+  save: () => saveFile(), open: () => openFile(), undo: () => undo(),
+  scrim: (el, ev) => { if (ev.target === el) closeLayer(); }, close: () => { closeLayer(); render(); },
+  'confirm-no': () => { $('#confirm')?.remove(); confirmFn = null; },
+  'confirm-yes': () => { const f = confirmFn; $('#confirm')?.remove(); confirmFn = null; f && f(); },
+  'occ-prev': () => stepOcc(-1), 'occ-next': () => stepOcc(1), 'occ-now': () => { ui.focusKey = null; render(); },
+  att: el => commit(() => { const c = courseById(el.dataset.c); const d = el.dataset.d; const a = (c.attendance[d] ||= {}); const order = [undefined, 'a', 'e', 'l']; const nx = order[(order.indexOf(a[el.dataset.s]) + 1) % order.length]; if (nx) a[el.dataset.s] = nx; else delete a[el.dataset.s]; if (!Object.keys(a).length) delete c.attendance[d]; }),
+  mark: el => commit(() => { const c = courseById(el.dataset.c); const col = c.columns.find(x => x.id === el.dataset.col); const e = ((c.entries[col.id] ||= {})[el.dataset.s] ||= {}); const ids = [undefined, ...col.options.map(o => o.id)]; const nx = ids[(ids.indexOf(e[el.dataset.d]) + 1) % ids.length]; if (nx) e[el.dataset.d] = nx; else delete e[el.dataset.d]; }),
+  done: el => commit(() => { const { l } = findLesson(courseById(el.dataset.c), el.dataset.l); l.done = !l.done; }, { noRender: !!drawerFn }) || (drawerFn && (refreshDrawer(), render())),
+  'lesson-open': el => { ui.view = 'unterricht'; ui.courseId = el.dataset.c; ui.openLesson = el.dataset.l; render(); setTimeout(() => $(`#lt-${el.dataset.l}`)?.scrollIntoView({ block: 'center' }), 30); },
+  'go-plan': el => { ui.view = 'unterricht'; ui.courseId = el.dataset.c; closeLayer(); render(); },
+  'cancel-occ': el => commit(() => { const c = courseById(el.dataset.c); if (!c.cancelled.includes(el.dataset.k)) c.cancelled.push(el.dataset.k); toast('Stunde entfällt. Der Stoff rückt weiter.'); if (ui.view === 'heute') ui.focusKey = null; }, {}) || refreshDrawer(),
+  uncancel: el => commit(() => { const c = courseById(el.dataset.c); c.cancelled = c.cancelled.filter(k => k !== el.dataset.k); }) || refreshDrawer(),
+  occ: el => occDrawer(el.dataset.c, el.dataset.k),
+  'occ-today': el => { ui.focusKey = el.dataset.c + '|' + el.dataset.k; ui.view = 'heute'; closeLayer(); render(); },
+  wk: el => { ui.week = addDays(ui.week, +el.dataset.n); ui.miniMonth = ui.week; render(); },
+  'wk-now': () => { ui.week = schoolWeek(); ui.miniMonth = ui.week; render(); },
+  mm: el => { const d = parse(ui.miniMonth || ui.week); d.setDate(1); d.setMonth(d.getMonth() + +el.dataset.n); ui.miniMonth = iso(d); render(); },
+  'mm-day': el => { ui.week = monday(el.dataset.d); render(); },
+  event: el => eventDrawer(el.dataset.id), 'event-new': el => eventDrawer(null, el.dataset.d, el.dataset.t),
+  'event-del': el => confirmBox('Termin löschen?', 'Der Termin wird entfernt.', 'Löschen', () => { commit(() => { D.events = D.events.filter(e => e.id !== el.dataset.id); }); closeLayer(); }),
+  'pick-course': el => { ui.courseId = el.dataset.c; ui.openLesson = null; render(); },
+  'unit-open': el => { const c = courseById(ui.courseId); const u = c.units.find(x => x.id === el.dataset.u); const cur = ui.openUnits[u.id] ?? !!u.lessons.find(l => l.id === ui.openLesson); ui.openUnits[u.id] = !cur; render(); },
+  'units-toggle': el => { const c = courseById(el.dataset.c); const anyOpen = c.units.some(u => ui.openUnits[u.id]); c.units.forEach(u => ui.openUnits[u.id] = !anyOpen); render(); },
+  'unit-add': el => commit(() => { const u = { id: uid(), title: 'Neue Sequenz', lessons: [{ id: uid(), title: '', length: 1, done: false, content: '', material: '', homework: '' }] }; courseById(el.dataset.c).units.push(u); ui.openUnits[u.id] = true; setTimeout(() => { const i = $(`#ut-${u.id}`); i?.focus(); i?.select(); }, 30); }),
+  'unit-move': el => commit(() => { const c = courseById(el.dataset.c); moveIn(c.units, c.units.find(u => u.id === el.dataset.u), +el.dataset.n); }),
+  'unit-del': el => { const c = courseById(el.dataset.c); const u = c.units.find(x => x.id === el.dataset.u); confirmBox('Sequenz löschen?', `„${u.title}“ und ihre ${u.lessons.length} Stunden werden gelöscht. Mit „Rückgängig“ holst du sie zurück.`, 'Löschen', () => commit(() => { c.units = c.units.filter(x => x !== u); })); },
+  'lesson-add': el => commit(() => { const u = courseById(el.dataset.c).units.find(x => x.id === el.dataset.u); const l = { id: uid(), title: '', length: 1, done: false, content: '', material: '', homework: '' }; u.lessons.push(l); ui.openLesson = l.id; setTimeout(() => $(`#lt-${l.id}`)?.focus(), 30); }),
+  'lesson-toggle': el => { ui.openLesson = ui.openLesson === el.dataset.l ? null : el.dataset.l; render(); },
+  'lesson-move': el => commit(() => { const c = courseById(el.dataset.c); const { u, l } = findLesson(c, el.dataset.l); const i = u.lessons.indexOf(l); const j = i + +el.dataset.n; if (j >= 0 && j < u.lessons.length) moveIn(u.lessons, l, +el.dataset.n); else { const ui2 = c.units.indexOf(u) + +el.dataset.n; const t = c.units[ui2]; if (t) { u.lessons.splice(i, 1); if (+el.dataset.n < 0) t.lessons.push(l); else t.lessons.unshift(l); ui.openUnits[t.id] = true; } } }),
+  'lesson-del': el => { const c = courseById(el.dataset.c); const { u, l } = findLesson(c, el.dataset.l); confirmBox('Stunde löschen?', `„${l.title || 'Ohne Titel'}“ wird gelöscht. Die folgenden Stunden rücken nach vorne.`, 'Löschen', () => { commit(() => { u.lessons = u.lessons.filter(x => x !== l); }); closeLayer(); render(); }); },
+  len: el => commit(() => { const { l } = findLesson(courseById(el.dataset.c), el.dataset.l); l.length = Math.max(1, Math.min(10, (l.length || 1) + +el.dataset.n)); }),
+  fmt: (el, ev) => { ev.preventDefault(); document.execCommand(el.dataset.cmd, false, null); },
+  kid: el => { ui.kidKey = el.dataset.k; render(); },
+  'kid-print': () => { const ch = allChildren().find(k => k.key === ui.kidKey); if (!ch) return; $('#page-style').textContent = '@page{size:A4 portrait;margin:14mm}'; $('#print-area').innerHTML = printChildren([ch]); setTimeout(() => window.print(), 50); },
+  'pick-class': el => { ui.classId = el.dataset.id; render(); },
+  'pick-scourse': el => { ui.studentCourse = el.dataset.c; render(); },
+  'stud-add': el => commit(() => { const s = { id: uid(), last: '', first: '', number: '' }; classById(el.dataset.id).students.push(s); setTimeout(() => $(`#sl-${s.id}`)?.focus(), 30); }),
+  'stud-del': el => { const k = classById(el.dataset.id); const s = k.students.find(x => x.id === el.dataset.s); confirmBox('Aus der Liste entfernen?', `${s.first} ${s.last} wird aus ${k.title} entfernt.`, 'Entfernen', () => commit(() => { k.students = k.students.filter(x => x !== s); })); },
+  'stud-import': el => importDialog(el.dataset.id),
+  cols: el => colsDialog(el.dataset.c),
+  grades: el => gradesDialog(el.dataset.c),
+  'grades-new': el => commit(() => { courseById(el.dataset.c).grades = { categories: [{ id: uid(), title: 'Schularbeiten', weight: 2, items: [{ id: uid(), title: '1. SA' }, { id: uid(), title: '2. SA' }] }, { id: uid(), title: 'Mitarbeit', weight: 1, items: [{ id: uid(), title: 'Mitarbeit' }] }], values: {} }; }),
+  'gcat-add': el => commit(() => { courseById(el.dataset.c).grades.categories.push({ id: uid(), title: 'Neuer Bereich', weight: 1, items: [{ id: uid(), title: 'Note 1' }] }); }, { noRender: true }) || refreshDrawer(),
+  'gcat-move': el => commit(() => { const g = courseById(el.dataset.c).grades; moveIn(g.categories, g.categories.find(x => x.id === el.dataset.cat), -1); }, { noRender: true }) || refreshDrawer(),
+  'gcat-del': el => { const g = courseById(el.dataset.c).grades; const cat = g.categories.find(x => x.id === el.dataset.cat); confirmBox('Bereich löschen?', `„${cat.title}“ und alle Noten darin werden gelöscht.`, 'Löschen', () => { commit(() => { g.categories = g.categories.filter(x => x !== cat); cat.items.forEach(it => delete g.values[it.id]); }, { noRender: true }); refreshDrawer(); }); },
+  'gitem-add': el => commit(() => { const cat = courseById(el.dataset.c).grades.categories.find(x => x.id === el.dataset.cat); cat.items.push({ id: uid(), title: `Note ${cat.items.length + 1}` }); }, { noRender: true }) || refreshDrawer(),
+  'gitem-del': el => { const g = courseById(el.dataset.c).grades; const cat = g.categories.find(x => x.id === el.dataset.cat); const it = cat.items.find(x => x.id === el.dataset.it); const n = Object.keys(g.values[it.id] || {}).length; const go = () => { commit(() => { cat.items = cat.items.filter(x => x !== it); delete g.values[it.id]; }, { noRender: true }); refreshDrawer(); }; n ? confirmBox('Spalte löschen?', `„${it.title}“ mit ${n} Noten wird gelöscht.`, 'Löschen', go) : go(); },
+  'col-add': el => commit(() => { const t = COL_TEMPLATES[el.dataset.k]; courseById(el.dataset.c).columns.push({ id: uid(), title: t.title, type: t.type, options: t.options.map(([symbol, style]) => ({ id: uid(), symbol, style })) }); }, { noRender: true }) || refreshDrawer(),
+  'col-del': el => { const c = courseById(el.dataset.c); const col = c.columns.find(x => x.id === el.dataset.col); confirmBox('Spalte löschen?', `„${col.title}“ und alle Einträge darin werden gelöscht.`, 'Löschen', () => { commit(() => { c.columns = c.columns.filter(x => x !== col); delete c.entries[col.id]; }, { noRender: true }); refreshDrawer(); }); },
+  'col-move': el => commit(() => { const c = courseById(el.dataset.c); moveIn(c.columns, c.columns.find(x => x.id === el.dataset.col), +el.dataset.n); }, { noRender: true }) || refreshDrawer(),
+  'opt-add': el => commit(() => { courseById(el.dataset.c).columns.find(x => x.id === el.dataset.col).options.push({ id: uid(), symbol: '?', style: 'info' }); }, { noRender: true }) || refreshDrawer(),
+  'opt-del': el => commit(() => { const col = courseById(el.dataset.c).columns.find(x => x.id === el.dataset.col); col.options = col.options.filter(o => o.id !== el.dataset.o); }, { noRender: true }) || refreshDrawer(),
+  'note-add': () => commit(() => { const n = { id: uid(), title: '', content: '', updated: new Date().toISOString() }; D.notes.push(n); ui.noteId = n.id; setTimeout(() => $(`#nt-${n.id}`)?.focus(), 30); }),
+  'note-pick': el => { ui.noteId = el.dataset.id; render(); },
+  'note-del': el => confirmBox('Notiz löschen?', 'Die Notiz wird gelöscht.', 'Löschen', () => commit(() => { D.notes = D.notes.filter(n => n.id !== el.dataset.id); ui.noteId = null; })),
+  'rem-done': el => commit(() => { const r = D.reminders.find(x => x.id === el.dataset.id); r.done = !r.done; }),
+  'rem-del': el => commit(() => { D.reminders = D.reminders.filter(x => x.id !== el.dataset.id); }),
+  pkind: el => { ui.print.kind = el.dataset.k; render(); },
+  print: () => doPrint(),
+  settab: el => { ui.setTab = el.dataset.k; render(); },
+  evfilter: el => { ui.evFilter = el.dataset.k; render(); },
+  yday: el => commit(() => { const d = +el.dataset.d; const a = D.year.days; D.year.days = a.includes(d) ? a.filter(x => x !== d) : [...a, d].sort(); }),
+  'period-add': () => commit(() => { const last = D.periods[D.periods.length - 1]; D.periods.push({ n: D.periods.length + 1, start: last ? last.end : '08:00', end: last ? last.end : '08:50' }); }),
+  'period-del': el => commit(() => { D.periods.splice(+el.dataset.i, 1); D.periods.forEach((p, i) => p.n = i + 1); }),
+  'class-del': el => { const k = classById(el.dataset.id); const n = D.courses.filter(c => c.classId === k.id).length; if (n) return toast(`Zu ${k.title} gehören noch ${n} Kurse. Lösche oder verschiebe sie zuerst.`); confirmBox('Klasse löschen?', `${k.title} mit ${k.students.length} Kindern wird gelöscht.`, 'Löschen', () => commit(() => { D.classes = D.classes.filter(x => x !== k); })); },
+  'course-open': el => { ui.openCourse = el.dataset.c || null; render(); },
+  'course-add': () => { if (!D.classes.length) return toast('Lege zuerst unter „Klassen“ eine Klasse an.'); commit(() => { const c = { id: uid(), classId: D.classes[0].id, subject: 'Neues Fach', short: '', color: COLORS[D.courses.length % COLORS.length], slots: [], units: [], cancelled: [], columns: [], entries: {}, lessonNotes: {}, attendance: {} }; D.courses.push(c); ui.openCourse = c.id; }); },
+  'course-color': el => commit(() => { courseById(el.dataset.c).color = el.dataset.k; }),
+  'course-del': el => { const c = courseById(el.dataset.c); confirmBox('Kurs löschen?', `${cname(c)} mit Stoffplan und allen Einträgen wird gelöscht. Mit „Rückgängig“ holst du ihn zurück.`, 'Löschen', () => commit(() => { D.courses = D.courses.filter(x => x !== c); })); },
+  'slot-add': el => commit(() => { const p = D.periods[0]; courseById(el.dataset.c).slots.push({ weekday: D.year.days[0], start: p.start, end: p.end, room: '', from: D.year.start, every: 1 }); }),
+  'slot-del': el => commit(() => { courseById(el.dataset.c).slots.splice(+el.dataset.i, 1); }),
+  'extra-del': el => commit(() => { courseById(el.dataset.c).extra.splice(+el.dataset.i, 1); }),
+  'forget-file': async () => { await idb.del('fileHandle').catch(() => { }); toast('Beim nächsten Sichern wählst du den Speicherort neu.'); },
+  wipe: () => confirmBox('Alle Daten auf diesem Gerät löschen?', 'Die App ist danach leer. Deine Datei auf OneDrive bleibt erhalten und du kannst sie wieder laden.', 'Löschen', async () => { await idb.del('data').catch(() => { }); await idb.del('meta').catch(() => { }); try { localStorage.removeItem('planbuch-data'); } catch (e) { } location.reload(); }),
+  'demo': () => { D = normalize(demoData()); version++; meta.changedAt = new Date().toISOString(); persist(); pickDefaults(); render(); },
+};
+function stepOcc(n) {
+  const all = allOcc().filter(o => !o.cancelled); const cur = currentOcc();
+  const i = all.indexOf(cur); const nx = all[Math.max(0, Math.min(all.length - 1, i + n))];
+  if (nx) { ui.focusKey = nx.course.id + '|' + nx.key; render(); }
+}
+document.addEventListener('click', ev => {
+  const el = ev.target.closest('[data-act]'); if (!el) return;
+  const f = ACT[el.dataset.act]; if (!f) return;
+  if (el.tagName === 'BUTTON' && el.closest('form') && el.type !== 'button') return;
+  f(el, ev);
+});
+document.addEventListener('mousedown', ev => { if (ev.target.closest('[data-act="fmt"]')) ev.preventDefault(); });
+
+/* Eingaben: werden ohne neues Zeichnen übernommen, damit der Cursor bleibt */
+const BIND = {
+  lessonNote: (el, v) => { const c = courseById(el.dataset.c); if (v) c.lessonNotes[el.dataset.k] = v; else delete c.lessonNotes[el.dataset.k]; },
+  weekNote: (el, v) => { if (v) D.weekNotes[el.dataset.k] = v; else delete D.weekNotes[el.dataset.k]; },
+  entry: (el, v) => { const c = courseById(el.dataset.c); const e = ((c.entries[el.dataset.col] ||= {})[el.dataset.s] ||= {}); if (v) e[el.dataset.d] = v; else delete e[el.dataset.d]; },
+  unitTitle: (el, v) => { courseById(el.dataset.c).units.find(u => u.id === el.dataset.u).title = v; },
+  lessonTitle: (el, v) => { const { l } = findLesson(courseById(el.dataset.c), el.dataset.l); l.title = v; delete l.buffer; },
+  lessonHtml: el => { findLesson(courseById(el.dataset.c), el.dataset.l).l[el.dataset.f] = sanitize(el.innerHTML); },
+  noteTitle: (el, v) => { const n = D.notes.find(x => x.id === el.dataset.id); n.title = v; n.updated = new Date().toISOString(); },
+  noteHtml: el => { const n = D.notes.find(x => x.id === el.dataset.id); n.content = sanitize(el.innerHTML); n.updated = new Date().toISOString(); },
+  stud: (el, v) => { classById(el.dataset.id).students.find(s => s.id === el.dataset.s)[el.dataset.f] = v.trim(); },
+  remText: (el, v) => { D.reminders.find(x => x.id === el.dataset.id).text = v; },
+  classTitle: (el, v) => { classById(el.dataset.id).title = v; },
+  childNote: (el, v) => { if (v) D.childNotes[el.dataset.k] = v; else delete D.childNotes[el.dataset.k]; },
+  grade: (el, v) => { const c = courseById(el.dataset.c); const n = parseG(v); const m = (c.grades.values[el.dataset.it] ||= {}); if (n == null) delete m[el.dataset.s]; else m[el.dataset.s] = n; updateGradeRow(c, el.dataset.s); },
+  gcat: (el, v) => { const cat = courseById(el.dataset.c).grades.categories.find(x => x.id === el.dataset.cat); cat[el.dataset.f] = el.dataset.f === 'weight' ? (parseG(v) ?? 0) : v; },
+  gitem: (el, v) => { courseById(el.dataset.c).grades.categories.find(x => x.id === el.dataset.cat).items.find(x => x.id === el.dataset.it).title = v; },
+  colTitle: (el, v) => { courseById(el.dataset.c).columns.find(x => x.id === el.dataset.col).title = v; },
+  optSym: (el, v) => { courseById(el.dataset.c).columns.find(x => x.id === el.dataset.col).options.find(o => o.id === el.dataset.o).symbol = v; },
+  year: (el, v) => { if (v) D.year[el.dataset.f] = v; },
+  course: (el, v) => { courseById(el.dataset.c)[el.dataset.f] = v; },
+};
+/* Auswahlfelder und Datumsfelder: übernehmen und neu zeichnen */
+const BIND_CHANGE = {
+  remDate: (el, v) => { D.reminders.find(x => x.id === el.dataset.id).date = v || null; },
+  lessonUnit: el => { const c = courseById(el.dataset.c); const { u, l } = findLesson(c, el.dataset.l); const t = c.units.find(x => x.id === el.value); if (t && t !== u) { u.lessons = u.lessons.filter(x => x !== l); t.lessons.push(l); ui.openUnits[t.id] = true; } },
+  optStyle: el => { courseById(el.dataset.c).columns.find(x => x.id === el.dataset.col).options.find(o => o.id === el.dataset.o).style = el.value; },
+  period: (el, v) => { if (v) D.periods[+el.dataset.i][el.dataset.f] = v; },
+  slot: (el, v) => { const s = courseById(el.dataset.c).slots[+el.dataset.i]; const f = el.dataset.f; if (f === 'period') { const p = D.periods.find(p => p.n === +v); s.start = p.start; s.end = p.end; } else if (f === 'weekday' || f === 'every') s[f] = +v; else if (f === 'until' && !v) delete s.until; else s[f] = v; },
+  year: (el, v) => { if (v) D.year[el.dataset.f] = v; },
+  course: (el, v) => { courseById(el.dataset.c)[el.dataset.f] = v; },
+};
+let typingTimer = null;
+document.addEventListener('input', ev => {
+  const el = ev.target.closest('[data-bind]'); if (!el) return;
+  if (el.dataset.bind === 'print') return printBind(el);
+  if (el.dataset.bind === 'kidQuery') { ui.kidQuery = el.value; const pos = el.selectionStart; render(); const i = $('#kid-q'); i.focus(); i.setSelectionRange(pos, pos); return; }
+  const f = BIND[el.dataset.bind]; if (!f || el.tagName === 'SELECT' || el.type === 'date' || el.type === 'time') return;
+  const first = !typingTimer;
+  clearTimeout(typingTimer);
+  if (first) { undoStack.push(JSON.stringify(D)); if (undoStack.length > 25) undoStack.shift(); }
+  f(el, el.isContentEditable ? null : el.value);
+  version++; meta.changedAt = new Date().toISOString(); persist();
+  typingTimer = setTimeout(() => { typingTimer = null; renderSide(); }, 600);
+});
+document.addEventListener('change', ev => {
+  const el = ev.target.closest('[data-bind]'); if (!el) return;
+  if (el.dataset.bind === 'print') return printBind(el, true);
+  if (el.dataset.bind === 'kidClass') { ui.kidClass = el.value; ui.kidKey = null; return render(); }
+  if (el.dataset.bind === 'kidQuery') return;
+  const f = BIND_CHANGE[el.dataset.bind];
+  if (f && (el.tagName === 'SELECT' || el.type === 'date' || el.type === 'time' || el.dataset.bind === 'year' || el.dataset.bind === 'course')) commit(() => f(el, el.value), { noRender: !!drawerFn && el.dataset.bind !== 'lessonUnit' });
+  else if (BIND[el.dataset.bind]) renderSide();
+});
+document.addEventListener('focusout', ev => {
+  const el = ev.target.closest && ev.target.closest('[contenteditable][data-bind]');
+  if (el && drawerFn === null && ui.view === 'unterricht') { /* Liste bleibt offen; Kurzinfo aktualisiert sich beim nächsten Zeichnen */ }
+});
+function printBind(el, change) {
+  const P = ui.print; const f = el.dataset.f; const v = el.value;
+  if (f === 'class') ui.classId = v; else if (f === 'course') P.courseId = v; else if (f === 'col') P.colId = v;
+  else if (f === 'week') P.week = v ? monday(v) : P.week; else P[f] = v;
+  if (change || el.tagName === 'SELECT') render(); else { $('.pv').innerHTML = printHtml(); }
+}
+document.addEventListener('submit', ev => {
+  const fm = ev.target.closest('[data-form]'); if (!fm) return; ev.preventDefault();
+  const k = fm.dataset.form;
+  if (k === 'rem') { const t = $('#rem-new').value.trim(); if (!t) return; commit(() => D.reminders.push({ id: uid(), text: t, date: $('#rem-new-date').value || null, done: false })); }
+  if (k === 'extra') { const c = courseById(fm.dataset.c); const d = $(`#xd-${c.id}`).value; const p = D.periods.find(p => p.n === +$(`#xp-${c.id}`).value); if (!d || !p) return; commit(() => c.extra.push({ date: d, start: p.start, end: p.end })); }
+  if (k === 'class') { const t = $('#class-new').value.trim(); if (!t) return; commit(() => D.classes.push({ id: uid(), title: t, grade: '', students: [] })); }
+  if (k === 'event') {
+    const fd = Object.fromEntries(new FormData(fm)); const id = fm.dataset.id;
+    commit(() => { let e = D.events.find(x => x.id === id); if (!e) { e = { id }; D.events.push(e); } Object.assign(e, { title: fd.title.trim(), type: fd.type, start: fd.start, end: fd.end && fd.end >= fd.start ? fd.end : fd.start, startTime: fd.startTime || null, endTime: fd.endTime || null, note: fd.note }); });
+    closeLayer(); render(); toast('Termin gespeichert');
+  }
+  if (k === 'import') {
+    const cls = classById(fm.dataset.id); const lines = $('#imp-text').value.split(/\n/).map(s => s.trim()).filter(Boolean);
+    commit(() => lines.forEach((line, i) => { let last, first; if (line.includes(',')) [last, first] = line.split(',').map(s => s.trim()); else { const p = line.split(/\s+/); first = p.slice(0, -1).join(' '); last = p[p.length - 1]; if (!first) { first = ''; } } cls.students.push({ id: uid(), last: last || '', first: first || '', number: '' }); }));
+    closeLayer(); render(); toast(`${lines.length} Namen übernommen`);
+  }
+});
+function importDialog(cid) {
+  const cls = classById(cid);
+  drawer(() => `<div class="dh"><h2>Klassenliste einfügen – ${esc(cls.title)}</h2><button class="btn icon ghost" data-act="close" aria-label="Schließen">${icon('x')}</button></div>
+    <form data-form="import" data-id="${cid}" style="display:grid;gap:12px"><p class="sub" style="margin:0">Ein Name pro Zeile, entweder „Nachname, Vorname“ oder „Vorname Nachname“. Du kannst die Liste zum Beispiel aus Excel oder Sokrates kopieren.</p>
+    <textarea id="imp-text" style="min-height:260px" placeholder="Muster, Anna&#10;Beispiel, Ben" required></textarea><div><button class="btn primary">Übernehmen</button></div></form>`, 'import');
+}
+document.addEventListener('keydown', ev => {
+  if (ev.key === 'Escape') { if ($('#confirm')) $('#confirm').remove(); else if (drawerFn) { closeLayer(); render(); } }
+  if ((ev.metaKey || ev.ctrlKey) && ev.key === 's') { ev.preventDefault(); saveFile(); }
+  if ((ev.metaKey || ev.ctrlKey) && ev.key === 'z' && !ev.target.closest('input,textarea,[contenteditable]')) { ev.preventDefault(); undo(); }
+});
+window.addEventListener('beforeunload', ev => { if (isDirty()) { ev.preventDefault(); ev.returnValue = ''; } });
+
+/* ---------- Start ---------- */
+function pickDefaults() { ui.courseId = D.courses[0]?.id; ui.classId = D.classes[0]?.id; ui.focusKey = null; ui.week = schoolWeek(); }
+window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (D && VIEWS.some(v => v[0] === h) && h !== ui.view) { ui.view = h; closeLayer(); render(); } });
+function welcome() {
+  $('#side').innerHTML = '';
+  $('#main').innerHTML = `<div class="page" style="max-width:640px;padding-top:12vh"><div class="card" style="display:grid;gap:14px;padding:28px">
+    <div class="brand" style="padding:0"><svg width="44" height="44" viewBox="0 0 34 34"><rect width="34" height="34" rx="10" fill="var(--tuerkis-bg)"/><rect x="8" y="9" width="18" height="17" rx="3" fill="none" stroke="var(--tuerkis-ink)" stroke-width="1.8"/><path d="M8 14h18" stroke="var(--tuerkis-ink)" stroke-width="1.8"/><circle cx="13" cy="19.5" r="1.8" fill="var(--koralle)"/><circle cx="18.5" cy="19.5" r="1.8" fill="var(--lila)"/></svg><div><b style="font-size:1.4rem">Planbuch</b><small>Unterrichtsplanung, Kalender und Schülerlisten</small></div></div>
+    <p style="margin:0">Lade deine Datei „${FILE_NAME}“ aus OneDrive. Danach arbeitet die App auch ohne Internet weiter.</p>
+    <div class="row"><button class="btn primary" data-act="open">${icon('open')}Datei aus OneDrive laden</button><button class="btn" data-act="demo">Mit leerem Planbuch beginnen</button></div>
+    <p class="sub" style="margin:0">Deine Daten bleiben auf deinem Gerät und in deinem OneDrive.</p></div></div>`;
+}
+function demoData() {
+  const y = new Date().getMonth() >= 7 ? new Date().getFullYear() : new Date().getFullYear() - 1;
+  return { app: 'planbuch', version: 1, year: { title: `${y}/${y + 1}`, start: `${y}-09-08`, end: `${y + 1}-07-02`, days: [1, 2, 3, 4, 5] },
+    periods: [['07:50', '08:40'], ['08:45', '09:35'], ['09:50', '10:40'], ['10:45', '11:35'], ['11:35', '12:25'], ['12:30', '13:20']].map(([s, e], i) => ({ n: i + 1, start: s, end: e })),
+    classes: [], courses: [], events: [], weekNotes: {}, notes: [], reminders: [] };
+}
+(async function start() {
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { });
+  const h = location.hash.slice(1); if (VIEWS.some(v => v[0] === h)) ui.view = h;
+  if (await loadLocal()) { normalize(D); pickDefaults(); render(); }
+  else welcome();
+  setInterval(() => { if (ui.view === 'heute' && !drawerFn && !document.activeElement?.closest('input,textarea,[contenteditable]')) render(); }, 60000);
+})();
+</script>
+</body>
+</html>
