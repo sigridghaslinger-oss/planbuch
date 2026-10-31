@@ -360,6 +360,7 @@ const I = {
   cloud: '<path d="M7 18h10a4 4 0 0 0 .6-8A6 6 0 0 0 6.2 9 4.5 4.5 0 0 0 7 18z"/><path d="M12 11v5M9.5 13.5 12 16l2.5-2.5"/>',
   open: '<path d="M7 18h10a4 4 0 0 0 .6-8A6 6 0 0 0 6.2 9 4.5 4.5 0 0 0 7 18z"/><path d="M12 16v-5M9.5 13.5 12 11l2.5 2.5"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  grade: '<path d="M5 4h14v16H5z"/><path d="M8.5 9h7M8.5 13h7M8.5 17h4"/><circle cx="16" cy="17" r="0"/>',
   child: '<circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.8 3.6-6 7-6s6.2 2.2 7 6"/>',
 };
 const icon = (n, cls = '') => `<svg class="${cls}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[n]}</svg>`;
@@ -415,7 +416,7 @@ const isDirty = () => !meta.fileSavedAt || (meta.changedAt && meta.changedAt > m
 function normalize(d) {
   d.classes ||= []; d.courses ||= []; d.childNotes ||= {}; d.events ||= []; d.weekNotes ||= {}; d.notes ||= []; d.reminders ||= [];
   d.periods ||= []; d.year ||= { title: 'Schuljahr', start: todayIso(), end: addDays(todayIso(), 300), days: [1, 2, 3, 4, 5] };
-  d.courses.forEach(c => { c.units ||= []; c.slots ||= []; c.extra ||= []; c.cancelled ||= []; c.columns ||= []; c.entries ||= {}; c.lessonNotes ||= {}; c.attendance ||= {}; c.color ||= 'tuerkis'; });
+  d.courses.forEach(c => { c.units ||= []; c.slots ||= []; c.extra ||= []; c.homework ||= []; c.cancelled ||= []; c.columns ||= []; c.entries ||= {}; c.lessonNotes ||= {}; c.attendance ||= {}; c.color ||= 'tuerkis'; });
   d.classes.forEach(k => { k.students ||= []; });
   return d;
 }
@@ -530,7 +531,7 @@ const eventsOn = d => D.events.filter(e => e.start <= d && (e.end || e.start) >=
 
 /* ---------- Navigation & Rahmen ---------- */
 const VIEWS = [
-  ['heute', 'Heute', 'today'], ['kalender', 'Kalender', 'cal'], ['unterricht', 'Unterricht', 'plan'], ['schueler', 'Schüler', 'people'], ['kinder', 'Leistungsprofil', 'child'],
+  ['heute', 'Heute', 'today'], ['kalender', 'Kalender', 'cal'], ['unterricht', 'Unterricht', 'plan'], ['schueler', 'Schüler', 'people'], ['noten', 'Noten', 'grade'], ['kinder', 'Leistungsprofil', 'child'],
   ['notizen', 'Notizen', 'note'], ['erinnerungen', 'Erinnerungen', 'bell'], ['drucken', 'Drucken', 'print'], ['einstellungen', 'Einstellungen', 'gear'],
 ];
 function renderSide() {
@@ -556,7 +557,7 @@ function pageHead(title, sub, right = '') {
 function render() {
   renderSide();
   const m = $('#main'); const st = m.scrollTop;
-  const views = { heute: vHeute, kalender: vKalender, unterricht: vUnterricht, schueler: vSchueler, kinder: vKinder, notizen: vNotizen, erinnerungen: vErinnerungen, drucken: vDrucken, einstellungen: vEinstellungen };
+  const views = { heute: vHeute, kalender: vKalender, unterricht: vUnterricht, schueler: vSchueler, noten: vNoten, kinder: vKinder, notizen: vNotizen, erinnerungen: vErinnerungen, drucken: vDrucken, einstellungen: vEinstellungen };
   m.innerHTML = `<div class="page">${(views[ui.view] || vHeute)()}</div>`;
   m.scrollTop = st;
   afterRender();
@@ -605,22 +606,75 @@ function vHeute() {
     <div class="card"><div class="head" style="margin-bottom:8px"><h2>${esc(cls?.title || '')} – Mitschrift</h2><button class="btn sm ghost" data-act="cols" data-c="${c.id}">${icon('edit')}Spalten</button></div>${table}</div>
     <div style="display:grid;gap:18px">
       <div class="card lessonbox">
-        ${l ? `<div><div class="unitline">${esc(u.title)}${l.length > 1 ? ` · Teil ${o.part} von ${l.length}` : ''}</div><h2 style="margin-top:2px">${esc(l.title || 'Ohne Titel')}</h2></div>
+        ${l ? (ui.inlineEdit === l.id ? `<div class="row" style="justify-content:space-between"><div class="unitline">${esc(u.title)}</div><button class="btn sm primary" data-act="inline-done">Fertig</button></div>${lessonEditor(c, u, l)}`
+        : `<div><div class="unitline">${esc(u.title)}${l.length > 1 ? ` · Teil ${o.part} von ${l.length}` : ''}</div><h2 style="margin-top:2px">${esc(l.title || 'Ohne Titel')}</h2></div>
         <div class="row"><button class="check ${l.done ? 'on' : ''}" data-act="done" data-c="${c.id}" data-l="${l.id}" aria-label="erledigt"></button><span class="sub">${l.done ? 'Erledigt' : 'Als erledigt markieren'}</span>
-        <span style="flex:1"></span><button class="btn sm" data-act="lesson-open" data-c="${c.id}" data-l="${l.id}">${icon('edit')}Bearbeiten</button></div>
+        <span style="flex:1"></span><button class="btn sm" data-act="inline-edit" data-l="${l.id}">${icon('edit')}Bearbeiten</button></div>
         ${l.content ? `<div><div class="field-title">Inhalt</div><div class="rte" data-rte data-html="${esc(l.content)}"></div></div>` : ''}
         ${l.material ? `<div><div class="field-title">Material</div><div class="rte" data-rte data-html="${esc(l.material)}"></div></div>` : ''}
-        ${l.homework ? `<div><div class="field-title">Hausübung</div><div class="rte" data-rte data-html="${esc(l.homework)}"></div></div>` : ''}
-        ${!l.content && !l.material && !l.homework ? '<div class="sub">Noch kein Inhalt eingetragen.</div>' : ''}`
+        ${l.homework ? `<div><div class="field-title">Hausübung (Plan)</div><div class="rte" data-rte data-html="${esc(l.homework)}"></div></div>` : ''}
+        ${!l.content && !l.material && !l.homework ? '<div class="sub">Noch kein Inhalt eingetragen. Tippe auf „Bearbeiten“.</div>' : ''}`)
       : `<div class="sub">Für diese Stunde ist im Stoffplan noch nichts geplant (${pl.planned} von ${pl.available} Stunden verplant).</div><button class="btn sm" data-act="go-plan" data-c="${c.id}">Zur Unterrichtsplanung</button>`}
         <div><div class="field-title">Notiz zu dieser Stunde</div><textarea id="ln-${o.key}" data-bind="lessonNote" data-c="${c.id}" data-k="${o.key}" placeholder="z. B. Wer hat gefehlt, was ist offen geblieben …">${esc(ln)}</textarea></div>
         <div class="row"><button class="btn sm ghost" data-act="cancel-occ" data-c="${c.id}" data-k="${o.key}">Stunde entfällt</button></div>
       </div>
+      ${hwCheckHtml(c, o, studs)}
+      ${hwGiveHtml(c, o, l)}
       ${todayRem.length ? `<div class="card"><h3 style="margin-bottom:8px">Fällige Erinnerungen</h3><ul class="reminders" style="list-style:none;margin:0;padding:0;display:grid;gap:6px">${todayRem.map(r => `<li><button class="check" data-act="rem-done" data-id="${r.id}" aria-label="erledigt"></button>${esc(r.text)}<span class="sub">${dm(r.date)}</span></li>`).join('')}</ul></div>` : ''}
     </div>
   </div>`;
 }
 function optOf(col, v) { return (col.options || []).find(o => o.id === v); }
+/* ---------- Hausübungen: aufgeben, mit der Abgabestunde verknüpfen, kontrollieren ---------- */
+function hwColumn(c, create) {
+  let col = c.columns.find(x => x.type !== 'text' && /haus/i.test(x.title));
+  if (!col && create) {
+    col = { id: uid(), title: 'Hausübung', type: 'symbols', options: [{ id: uid(), symbol: '✓', style: 'good', label: 'OK' }, { id: uid(), symbol: '½', style: 'mid', label: 'Teilweise' }, { id: uid(), symbol: '✗', style: 'bad', label: 'Fehlt' }, { id: uid(), symbol: 'N', style: 'info', label: 'Nachgereicht' }] };
+    c.columns.unshift(col);
+  }
+  return col;
+}
+const hwCheckOcc = (c, hw) => planOf(c).occ.find(x => !x.cancelled && x.date >= hw.due && x.key > hw.given);
+function nextOccAfter(c, o) { return planOf(c).occ.find(x => !x.cancelled && x.key > o.key); }
+function hwCheckHtml(c, o, studs) {
+  const due = (c.homework || []).filter(hw => hwCheckOcc(c, hw)?.key === o.key);
+  if (!due.length) return '';
+  const col = hwColumn(c, false);
+  const opts = col ? col.options : [];
+  return due.map(hw => {
+    const res = hw.results || {};
+    const n = studs.filter(s => res[s.id]).length;
+    const forgot = col ? studs.map(s => ({ s, k: Object.values(c.entries[col.id]?.[s.id] || {}).filter(v => /fehlt/i.test(optOf(col, v)?.label || '') || optOf(col, v)?.style === 'bad').length })).filter(x => x.k).sort((a, b) => b.k - a.k) : [];
+    return `<div class="card c-${c.color}" style="display:grid;gap:10px;border-left:4px solid var(--c-line)">
+      <div class="row" style="justify-content:space-between"><div><div class="kicker">Hausübung kontrollieren</div><h3 style="margin-top:2px">${esc(hw.text)}</h3><div class="sub">aufgegeben am ${dm(hw.given.slice(0, 10))} · Abgabe ${dm(hw.due)}</div></div><span class="pill">${n}/${studs.length} kontrolliert</span></div>
+      ${opts.length ? `<div class="row" style="gap:6px"><button class="btn sm" data-act="hw-allok" data-c="${c.id}" data-hw="${hw.id}">Alle übrigen ${esc(opts[0].symbol)} ${esc(opts[0].label || '')}</button><span class="sub">Danach nur noch die Ausnahmen antippen.</span></div>` : ''}
+      <div class="scroll-x"><table class="st"><tbody>${studs.map(s => `<tr><td>${esc(s.last)}${s.first ? ', ' + esc(s.first) : ''}</td><td style="text-align:right;white-space:nowrap">${opts.map(op => `<button class="mark ${res[s.id] === op.id ? 'set m-' + op.style : ''}" style="width:36px;height:30px;margin-left:3px" data-act="hw-mark" data-c="${c.id}" data-hw="${hw.id}" data-s="${s.id}" data-o="${op.id}" title="${esc(op.label || op.symbol)}" aria-label="${esc(s.last)}: ${esc(op.label || op.symbol)}">${esc(op.symbol)}</button>`).join('')}</td></tr>`).join('')}</tbody></table></div>
+      ${forgot.length ? `<div><div class="field-title">Vergessen-Liste ${esc(col.title)} (ganzes Schuljahr)</div><div class="chips">${forgot.map(x => `<span class="chip c-koralle" style="cursor:default">${esc(x.s.last)} ${esc(x.s.first.slice(0, 1))}. · ${x.k}×</span>`).join('')}</div></div>` : ''}
+    </div>`;
+  }).join('');
+}
+function hwGiveHtml(c, o, l) {
+  const given = (c.homework || []).filter(hw => hw.given === o.key);
+  const nx = nextOccAfter(c, o);
+  const def = ui.hwDue?.[o.key] || nx?.date || addDays(o.date, 7);
+  const target = hwCheckOcc(c, { due: def, given: o.key });
+  const pre = l && l.homework ? stripHtml(l.homework) : '';
+  return `<div class="card" style="display:grid;gap:10px"><h3>Hausübung aufgeben</h3>
+    ${given.map(hw => { const t = hwCheckOcc(c, hw); return `<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:8px"><div><b>${esc(hw.text)}</b><div class="sub">Abgabe ${dm(hw.due)}${t ? ` · wird kontrolliert am ${WD[weekday(t.date)]} ${dm(t.date)}, ${periodOf(t.start) || t.start}. Std` : ' · keine Stunde mehr bis Schulschluss'}</div></div><button class="btn icon ghost" data-act="hw-del" data-c="${c.id}" data-hw="${hw.id}" aria-label="Hausübung löschen">${icon('trash')}</button></div>`; }).join('')}
+    <form data-form="hw" data-c="${c.id}" data-k="${o.key}" style="display:grid;gap:8px">
+      <textarea id="hw-text-${o.key}" placeholder="z. B. AB S. 24 Nr. 1–3" required style="min-height:56px">${esc(pre)}</textarea>
+      <div class="row" style="gap:6px"><label class="f" style="flex:1">Abgabe am<input type="date" id="hw-due-${o.key}" value="${def}" data-bind="hwDue" data-k="${o.key}"></label>
+        <div class="chips" style="align-self:end">${nx ? `<button type="button" class="chip c-tuerkis ${def === nx.date ? '' : 'off'}" data-act="hw-quick" data-k="${o.key}" data-d="${nx.date}">nächste Stunde</button>` : ''}<button type="button" class="chip c-tuerkis ${def === addDays(o.date, 7) ? '' : 'off'}" data-act="hw-quick" data-k="${o.key}" data-d="${addDays(o.date, 7)}">in 1 Woche</button></div></div>
+      <div class="sub" id="hw-target-${o.key}">${target ? `Kontrolle in der Stunde am ${WD[weekday(target.date)]} ${dm(target.date)}, ${periodOf(target.start) || target.start}. Std` : 'Bis Schulschluss gibt es keine passende Stunde.'}</div>
+      <div><button class="btn sm primary">${icon('plus')}Aufgeben</button></div>
+    </form></div>`;
+}
+function hwRecord(c, hw, sid, oid) {
+  const col = hwColumn(c, true); const t = hwCheckOcc(c, hw); if (!t) return;
+  hw.results ||= {};
+  const e = ((c.entries[col.id] ||= {})[sid] ||= {});
+  if (oid) { hw.results[sid] = oid; e[t.date] = oid; } else { delete hw.results[sid]; delete e[t.date]; }
+}
 /* ---------- Noten ---------- */
 const fmtG = v => v == null ? '' : String(Math.round(v * 100) / 100).replace('.', ',');
 const parseG = v => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? null : n; };
@@ -817,12 +871,25 @@ function vSchueler() {
       }).join('')}</tr>`;
     }).join('')}</tbody></table></div><div class="sub" style="margin-top:8px">Einträge machst du unter „Heute“ direkt in der Stunde. Fahre mit der Maus über ein Zeichen, um das Datum zu sehen.</div></div>`;
   }
+  return pageHead('Schüler', '', chips) + list + ov;
+}
+/* ---------- Ansicht: Noten ---------- */
+function vNoten() {
+  const classes = D.classes.filter(k => k.students.length && D.courses.some(c => c.classId === k.id));
+  if (!classes.length) return pageHead('Noten') + `<div class="card empty">Noch keine Klassen mit Schülerinnen und Schülern. Lege die Listen unter „Schüler“ an.</div>`;
+  ui.gradeClass = classes.find(k => k.id === ui.gradeClass) ? ui.gradeClass : (classes.find(k => D.courses.some(c => c.classId === k.id && c.grades)) || classes[0]).id;
+  const cls = classById(ui.gradeClass); const studs = studentsOf(cls);
+  const courses = D.courses.filter(c => c.classId === cls.id);
+  ui.gradeCourse = courses.find(c => c.id === ui.gradeCourse) ? ui.gradeCourse : (courses.find(c => c.grades) || courses[0]).id;
+  const c = courseById(ui.gradeCourse);
+  const chips = `<div class="chips">${classes.map(k => `<button class="chip c-lila ${k.id === cls.id ? '' : 'off'}" data-act="pick-gclass" data-id="${k.id}">${esc(k.title)}</button>`).join('')}</div>`;
+  const cchips = `<div class="chips">${courses.map(x => `<button class="chip c-${x.color} ${x.id === c.id ? '' : 'off'}" data-act="pick-gcourse" data-c="${x.id}"><i></i>${esc(cname(x))}${x.grades ? '' : ' <span style="opacity:.6">(leer)</span>'}</button>`).join('')}</div>`;
   let gr = '';
-  if (c && studs.length) {
+  {
     gr = c.grades ? `<div class="card"><div class="head" style="margin-bottom:10px"><h2>Noten ${esc(cname(c))}</h2><button class="btn sm ghost" data-act="grades" data-c="${c.id}">${icon('edit')}Bereiche und Gewichtung</button></div><div class="scroll-x">${gradeTable(c, studs)}</div><div class="sub" style="margin-top:8px">Noten mit Komma eingeben, z. B. 2,5. Durchschnitte rechnen sich sofort neu.</div></div>`
       : `<div class="card row" style="justify-content:space-between"><div><h2>Noten ${esc(cname(c))}</h2><div class="sub">Für diesen Kurs gibt es noch keine Notenliste.</div></div><button class="btn sm primary" data-act="grades-new" data-c="${c.id}">${icon('plus')}Notenliste anlegen</button></div>`;
   }
-  return pageHead('Schüler', '', chips) + list + gr + ov;
+  return pageHead('Noten', `Klasse ${esc(cls.title)}`, chips) + `<div>${cchips}</div>` + gr;
 }
 
 /* ---------- Ansicht: Kinder (Schülerprofil für den Elternsprechtag) ---------- */
@@ -1235,6 +1302,12 @@ const ACT = {
   att: el => commit(() => { const c = courseById(el.dataset.c); const d = el.dataset.d; const a = (c.attendance[d] ||= {}); const order = [undefined, 'a', 'e', 'l']; const nx = order[(order.indexOf(a[el.dataset.s]) + 1) % order.length]; if (nx) a[el.dataset.s] = nx; else delete a[el.dataset.s]; if (!Object.keys(a).length) delete c.attendance[d]; }),
   mark: el => commit(() => { const c = courseById(el.dataset.c); const col = c.columns.find(x => x.id === el.dataset.col); const e = ((c.entries[col.id] ||= {})[el.dataset.s] ||= {}); const ids = [undefined, ...col.options.map(o => o.id)]; const nx = ids[(ids.indexOf(e[el.dataset.d]) + 1) % ids.length]; if (nx) e[el.dataset.d] = nx; else delete e[el.dataset.d]; }),
   done: el => commit(() => { const { l } = findLesson(courseById(el.dataset.c), el.dataset.l); l.done = !l.done; }, { noRender: !!drawerFn }) || (drawerFn && (refreshDrawer(), render())),
+  'inline-edit': el => { ui.inlineEdit = el.dataset.l; render(); },
+  'inline-done': () => { ui.inlineEdit = null; render(); },
+  'hw-quick': el => { (ui.hwDue ||= {})[el.dataset.k] = el.dataset.d; render(); },
+  'hw-del': el => { const c = courseById(el.dataset.c); const hw = c.homework.find(x => x.id === el.dataset.hw); confirmBox('Hausübung löschen?', `„${hw.text}“ wird gelöscht. Bereits eingetragene Kontrollen bleiben in der Hausübungsliste.`, 'Löschen', () => commit(() => { c.homework = c.homework.filter(x => x !== hw); })); },
+  'hw-mark': el => commit(() => { const c = courseById(el.dataset.c); const hw = c.homework.find(x => x.id === el.dataset.hw); hwRecord(c, hw, el.dataset.s, (hw.results || {})[el.dataset.s] === el.dataset.o ? null : el.dataset.o); }),
+  'hw-allok': el => commit(() => { const c = courseById(el.dataset.c); const hw = c.homework.find(x => x.id === el.dataset.hw); const col = hwColumn(c, true); studentsOf(classById(c.classId)).forEach(s => { if (!(hw.results || {})[s.id]) hwRecord(c, hw, s.id, col.options[0].id); }); }),
   'lesson-open': el => { ui.view = 'unterricht'; ui.courseId = el.dataset.c; ui.openLesson = el.dataset.l; render(); setTimeout(() => $(`#lt-${el.dataset.l}`)?.scrollIntoView({ block: 'center' }), 30); },
   'go-plan': el => { ui.view = 'unterricht'; ui.courseId = el.dataset.c; closeLayer(); render(); },
   'cancel-occ': el => commit(() => { const c = courseById(el.dataset.c); if (!c.cancelled.includes(el.dataset.k)) c.cancelled.push(el.dataset.k); toast('Stunde entfällt. Der Stoff rückt weiter.'); if (ui.view === 'heute') ui.focusKey = null; }, {}) || refreshDrawer(),
@@ -1262,6 +1335,8 @@ const ACT = {
   kid: el => { ui.kidKey = el.dataset.k; render(); },
   'kid-print': () => { const ch = allChildren().find(k => k.key === ui.kidKey); if (!ch) return; $('#page-style').textContent = '@page{size:A4 portrait;margin:14mm}'; $('#print-area').innerHTML = printChildren([ch]); setTimeout(() => window.print(), 50); },
   'pick-class': el => { ui.classId = el.dataset.id; render(); },
+  'pick-gclass': el => { ui.gradeClass = el.dataset.id; ui.gradeCourse = null; render(); },
+  'pick-gcourse': el => { ui.gradeCourse = el.dataset.c; render(); },
   'pick-scourse': el => { ui.studentCourse = el.dataset.c; render(); },
   'stud-add': el => commit(() => { const s = { id: uid(), last: '', first: '', number: '' }; classById(el.dataset.id).students.push(s); setTimeout(() => $(`#sl-${s.id}`)?.focus(), 30); }),
   'stud-del': el => { const k = classById(el.dataset.id); const s = k.students.find(x => x.id === el.dataset.s); confirmBox('Aus der Liste entfernen?', `${s.first} ${s.last} wird aus ${k.title} entfernt.`, 'Entfernen', () => commit(() => { k.students = k.students.filter(x => x !== s); })); },
@@ -1364,6 +1439,7 @@ document.addEventListener('input', ev => {
 document.addEventListener('change', ev => {
   const el = ev.target.closest('[data-bind]'); if (!el) return;
   if (el.dataset.bind === 'print') return printBind(el, true);
+  if (el.dataset.bind === 'hwDue') { (ui.hwDue ||= {})[el.dataset.k] = el.value; return render(); }
   if (el.dataset.bind === 'kidClass') { ui.kidClass = el.value; ui.kidKey = null; return render(); }
   if (el.dataset.bind === 'kidQuery') return;
   const f = BIND_CHANGE[el.dataset.bind];
@@ -1384,6 +1460,7 @@ document.addEventListener('submit', ev => {
   const fm = ev.target.closest('[data-form]'); if (!fm) return; ev.preventDefault();
   const k = fm.dataset.form;
   if (k === 'rem') { const t = $('#rem-new').value.trim(); if (!t) return; commit(() => D.reminders.push({ id: uid(), text: t, date: $('#rem-new-date').value || null, done: false })); }
+  if (k === 'hw') { const c = courseById(fm.dataset.c); const key = fm.dataset.k; const text = $(`#hw-text-${CSS.escape(key)}`).value.trim(); const due = $(`#hw-due-${CSS.escape(key)}`).value; if (!text || !due) return; commit(() => { hwColumn(c, true); c.homework.push({ id: uid(), text, given: key, due, results: {} }); if (ui.hwDue) delete ui.hwDue[key]; }); toast('Hausübung aufgegeben'); }
   if (k === 'extra') { const c = courseById(fm.dataset.c); const d = $(`#xd-${c.id}`).value; const p = D.periods.find(p => p.n === +$(`#xp-${c.id}`).value); if (!d || !p) return; commit(() => c.extra.push({ date: d, start: p.start, end: p.end })); }
   if (k === 'class') { const t = $('#class-new').value.trim(); if (!t) return; commit(() => D.classes.push({ id: uid(), title: t, grade: '', students: [] })); }
   if (k === 'event') {
