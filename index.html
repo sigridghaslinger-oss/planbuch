@@ -212,7 +212,11 @@ table.st td.cell{text-align:center;padding:3px;width:52px}
 .drawer{width:min(480px,100%);height:100%;background:var(--surface);box-shadow:-8px 0 30px rgba(47,49,73,.12);overflow-y:auto;padding:max(20px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) 20px;display:grid;gap:14px;align-content:start}
 .drawer .dh{display:flex;align-items:start;justify-content:space-between;gap:10px}
 .dialog{margin:auto;width:min(440px,calc(100% - 32px));background:var(--surface);border-radius:16px;padding:20px;display:grid;gap:14px;box-shadow:0 20px 50px rgba(47,49,73,.2)}
-.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-weight:600;font-size:.9rem;z-index:80;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+#lock{position:fixed;inset:0;z-index:100;background:var(--bg);display:grid;place-items:center;padding:24px;overflow:auto}
+#lock .card{width:min(420px,100%);display:grid;gap:14px;padding:28px}
+#lock .err{color:var(--koralle-ink);font-weight:600;font-size:.9rem;min-height:1.2em;margin:0}
+#lock input[type=password]{font-size:1.05rem}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-weight:600;font-size:.9rem;z-index:120;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
 
 /* Schüler */
 .ov th.grp{text-align:center;border-left:1px solid var(--line)}
@@ -360,6 +364,7 @@ const I = {
   plus: '<path d="M12 5v14M5 12h14"/>', x: '<path d="M6 6l12 12M18 6 6 18"/>',
   up: '<path d="m6 15 6-6 6 6"/>', down: '<path d="m6 9 6 6 6-6"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
   undo: '<path d="M9 7 4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12h-2" transform="translate(0 -6)"/>',
   cloud: '<path d="M7 18h10a4 4 0 0 0 .6-8A6 6 0 0 0 6.2 9 4.5 4.5 0 0 0 7 18z"/><path d="M12 11v5M9.5 13.5 12 16l2.5-2.5"/>',
   open: '<path d="M7 18h10a4 4 0 0 0 .6-8A6 6 0 0 0 6.2 9 4.5 4.5 0 0 0 7 18z"/><path d="M12 16v-5M9.5 13.5 12 11l2.5 2.5"/>',
@@ -387,22 +392,153 @@ const idb = (() => {
   return { get: k => tx('readonly', s => s.get(k)), set: (k, v) => tx('readwrite', s => s.put(v, k)), del: k => tx('readwrite', s => s.delete(k)) };
 })();
 
+/* ---------- Passwort & Verschlüsselung ----------
+   Alle Daten werden mit AES-GCM verschlüsselt, der Schlüssel entsteht per PBKDF2 aus dem Passwort.
+   Unverschlüsselt liegen die Daten nur im Arbeitsspeicher, solange die App entsperrt ist. */
+const PBKDF2_ITER = 310000;
+const vault = { key: null, salt: null, iter: PBKDF2_ITER };
+const te = new TextEncoder(), td = new TextDecoder();
+const toB64 = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+const fromB64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function deriveKey(pw, salt, iter) {
+  const base = await crypto.subtle.importKey('raw', te.encode(pw), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: iter, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function seal(obj) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, vault.key, te.encode(JSON.stringify(obj))));
+  return { app: 'planbuch', enc: 'aes-gcm', kdf: 'pbkdf2-sha256', iter: vault.iter, salt: toB64(vault.salt), iv: toB64(iv), data: toB64(ct) };
+}
+async function unseal(box, key) { return JSON.parse(td.decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(box.iv) }, key, fromB64(box.data)))); }
+// wirft einen Fehler, wenn das Passwort nicht passt
+async function openBox(box, pw) { const salt = fromB64(box.salt); const key = await deriveKey(pw, salt, box.iter); return { obj: await unseal(box, key), key, salt, iter: box.iter }; }
+async function newVault(pw) { vault.salt = crypto.getRandomValues(new Uint8Array(16)); vault.iter = PBKDF2_ITER; vault.key = await deriveKey(pw, vault.salt, vault.iter); }
+const sameVault = box => vault.key && vault.salt && box.salt === toB64(vault.salt) && box.iter === vault.iter;
+
 let saveTimer = null;
-function persist() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => {
-    try { await idb.set('data', JSON.stringify(D)); await idb.set('meta', JSON.stringify(meta)); }
-    catch (e) { try { localStorage.setItem('planbuch-data', JSON.stringify(D)); localStorage.setItem('planbuch-meta', JSON.stringify(meta)); } catch (_) { toast('Speichern auf diesem Gerät ist fehlgeschlagen. Bitte auf OneDrive sichern.'); } }
-  }, 250);
-}
-async function loadLocal() {
+let fileCache = { v: -1, json: null };   // fertig verschlüsselte Datei, damit „Sichern“ am iPad sofort teilen kann
+function persist() { clearTimeout(saveTimer); saveTimer = setTimeout(flushPersist, 250); }
+async function flushPersist() {
+  clearTimeout(saveTimer); saveTimer = null;
+  if (!D) return;
+  if (!vault.key) { needPassword(); return; }
+  const v = version;
+  const box = JSON.stringify(await seal({ D, meta }));
+  fileCache = { v, json: JSON.stringify(await seal({ ...D, savedAt: new Date().toISOString() })) };
   try {
-    const d = await idb.get('data'); const m = await idb.get('meta');
-    if (d) { D = JSON.parse(d); if (m) Object.assign(meta, JSON.parse(m)); return true; }
-  } catch (e) { /* weiter mit localStorage */ }
-  try { const d = localStorage.getItem('planbuch-data'); if (d) { D = JSON.parse(d); Object.assign(meta, JSON.parse(localStorage.getItem('planbuch-meta') || '{}')); return true; } } catch (e) { }
-  return false;
+    await idb.set('data', box); await idb.del('meta').catch(() => { });
+    try { localStorage.removeItem('planbuch-data'); localStorage.removeItem('planbuch-meta'); } catch (e) { }
+  } catch (e) {
+    try { localStorage.setItem('planbuch-data', box); localStorage.removeItem('planbuch-meta'); } catch (_) { toast('Speichern auf diesem Gerät ist fehlgeschlagen. Bitte auf OneDrive sichern.'); }
+  }
 }
+async function readLocal() {
+  let d = null, m = null;
+  try { d = await idb.get('data'); m = await idb.get('meta'); } catch (e) { /* weiter mit localStorage */ }
+  if (!d) try { d = localStorage.getItem('planbuch-data'); m = localStorage.getItem('planbuch-meta'); } catch (e) { }
+  if (!d) return null;
+  const o = JSON.parse(d);
+  return o.enc ? { box: o } : { plain: o, meta: m ? JSON.parse(m) : {} };
+}
+
+/* Passwort-Bildschirm: deckt die ganze App ab */
+function pwScreen({ title, text, fields, button, submit, cancel, extra }) {
+  $('#lock')?.remove();
+  const el = document.createElement('div'); el.id = 'lock';
+  el.innerHTML = `<form class="card" autocomplete="on">
+    <div class="brand welcome-brand" style="padding:0"><svg width="44" height="44" viewBox="0 0 34 34"><rect width="34" height="34" rx="10" fill="var(--tuerkis-bg)"/><rect x="8" y="9" width="18" height="17" rx="3" fill="none" stroke="var(--tuerkis-ink)" stroke-width="1.8"/><path d="M8 14h18" stroke="var(--tuerkis-ink)" stroke-width="1.8"/><circle cx="13" cy="19.5" r="1.8" fill="var(--koralle)"/><circle cx="18.5" cy="19.5" r="1.8" fill="var(--lila)"/></svg><div><b style="font-size:1.3rem">${title}</b><small>Planbuch</small></div></div>
+    ${text ? `<p style="margin:0">${text}</p>` : ''}
+    <input type="text" name="username" value="Planbuch" autocomplete="username" hidden>
+    ${fields.map(([n, l, ac]) => `<label class="f">${l}<input type="password" name="${n}" autocomplete="${ac}" required></label>`).join('')}
+    <p class="err" role="alert"></p>
+    <div class="row" style="justify-content:space-between"><button class="btn primary">${button}</button>${cancel ? '<button type="button" class="btn ghost" data-x="cancel">Abbrechen</button>' : ''}</div>
+    ${extra || ''}</form>`;
+  document.body.append(el);
+  const form = el.querySelector('form'), err = el.querySelector('.err'), btn = form.querySelector('.btn.primary');
+  setTimeout(() => form.querySelector('input[type=password]')?.focus(), 50);
+  form.addEventListener('submit', async ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    const vals = Object.fromEntries(new FormData(form)); err.textContent = ''; btn.disabled = true; const label = btn.textContent; btn.textContent = 'Einen Moment …';
+    let msg = null; try { msg = await submit(vals); } catch (e) { msg = 'Das hat nicht geklappt. Bitte noch einmal versuchen.'; }
+    btn.disabled = false; btn.textContent = label;
+    if (msg) { err.textContent = msg; form.querySelector('input[type=password]').select(); } else el.remove();
+  });
+  el.addEventListener('click', ev => { if (ev.target.closest('[data-x=cancel]')) { el.remove(); cancel(); } });
+  return el;
+}
+const pwRule = (a, b) => a.length < 6 ? 'Das Passwort braucht mindestens 6 Zeichen.' : a !== b ? 'Die beiden Passwörter stimmen nicht überein.' : null;
+function needPassword() {
+  if ($('#lock')) return;
+  pwScreen({
+    title: 'Passwort festlegen',
+    text: 'Deine Daten werden ab jetzt mit diesem Passwort verschlüsselt, auf diesem Gerät und in der Datei auf OneDrive. <b>Merke dir das Passwort gut:</b> Ohne Passwort kann niemand die Daten wiederherstellen.',
+    fields: [['pw', 'Neues Passwort', 'new-password'], ['pw2', 'Passwort wiederholen', 'new-password']], button: 'Passwort festlegen',
+    submit: async ({ pw, pw2 }) => {
+      const bad = pwRule(pw, pw2); if (bad) return bad;
+      await newVault(pw); meta.changedAt = new Date().toISOString(); await flushPersist();
+      render(); toast('Passwort festgelegt. Sichere jetzt auf OneDrive, dann ist auch die Datei verschlüsselt.');
+    }
+  });
+}
+function showUnlock(box) {
+  const el = pwScreen({
+    title: 'Planbuch ist gesperrt', fields: [['pw', 'Passwort', 'current-password']], button: 'Entsperren',
+    extra: '<button type="button" class="btn ghost sm" style="justify-self:start" data-x="forgot">Passwort vergessen?</button>',
+    submit: async ({ pw }) => {
+      let r; try { r = await openBox(box, pw); } catch (e) { return 'Das Passwort stimmt nicht.'; }
+      Object.assign(vault, { key: r.key, salt: r.salt, iter: r.iter });
+      D = normalize(r.obj.D); Object.assign(meta, r.obj.meta || {}); version++; lastActive = Date.now();
+      if (!ui.week) pickDefaults();
+      fileCache = { v: -1, json: null }; persist(); render();
+    }
+  });
+  el.addEventListener('click', ev => {
+    if (!ev.target.closest('[data-x=forgot]')) return;
+    el.querySelector('form').innerHTML = `<h2 style="margin:0">Passwort vergessen</h2>
+      <p style="margin:0">Die Daten sind verschlüsselt. Ohne das Passwort kann sie niemand öffnen, auch nicht der Entwickler der App.</p>
+      <p class="sub" style="margin:0">Wenn du das Passwort nicht mehr weißt, kannst du die Daten auf diesem Gerät löschen und neu beginnen. Hast du noch eine ältere, unverschlüsselte Datei auf OneDrive, kannst du sie danach laden.</p>
+      <div class="row" style="justify-content:space-between"><button type="button" class="btn" data-x="back">Zurück</button><button type="button" class="btn" style="color:var(--koralle-ink)" data-x="wipe">${icon('trash')}Daten auf diesem Gerät löschen</button></div>`;
+  });
+  el.addEventListener('click', async ev => {
+    if (ev.target.closest('[data-x=back]')) showUnlock(box);
+    if (ev.target.closest('[data-x=wipe]')) { await idb.del('data').catch(() => { }); await idb.del('meta').catch(() => { }); try { localStorage.removeItem('planbuch-data'); localStorage.removeItem('planbuch-meta'); } catch (e) { } leaving = true; location.reload(); }
+  });
+}
+function askFilePassword(box, name) {
+  return new Promise(res => pwScreen({
+    title: 'Datei entsperren', text: `„${esc(name)}“ ist verschlüsselt. Gib das Passwort ein, mit dem die Datei gesichert wurde.`,
+    fields: [['pw', 'Passwort der Datei', 'current-password']], button: 'Öffnen', cancel: () => res(null),
+    submit: async ({ pw }) => { try { res(await openBox(box, pw)); } catch (e) { return 'Das Passwort stimmt nicht.'; } }
+  }));
+}
+function changePassword() {
+  pwScreen({
+    title: 'Passwort ändern', fields: [['cur', 'Bisheriges Passwort', 'current-password'], ['pw', 'Neues Passwort', 'new-password'], ['pw2', 'Neues Passwort wiederholen', 'new-password']],
+    button: 'Ändern', cancel: () => { },
+    submit: async ({ cur, pw, pw2 }) => {
+      const key = await deriveKey(cur, vault.salt, vault.iter); const loc = await readLocal();
+      try { await unseal(loc.box, key); } catch (e) { return 'Das bisherige Passwort stimmt nicht.'; }
+      const bad = pwRule(pw, pw2); if (bad) return bad;
+      await newVault(pw); meta.changedAt = new Date().toISOString(); await flushPersist(); render();
+      toast('Passwort geändert. Sichere jetzt auf OneDrive, damit auch die Datei das neue Passwort bekommt.');
+    }
+  });
+}
+async function lockNow() {
+  if (!vault.key || !D) return;
+  await flushPersist();
+  D = null; undoStack.length = 0; vault.key = null; version++; memo = { v: -1 }; fileCache = { v: -1, json: null };
+  closeLayer(); $('#confirm')?.remove(); if ($('#print-area')) $('#print-area').innerHTML = '';
+  $('#side').innerHTML = ''; $('#main').innerHTML = '';
+  const loc = await readLocal(); if (loc?.box) showUnlock(loc.box);
+}
+// automatisch sperren, wenn die App eine Weile nicht benutzt wurde (auch nach dem Wechsel in eine andere App)
+let lastActive = Date.now(), lockAfter = 15, leaving = false;
+['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(t => addEventListener(t, () => { lastActive = Date.now(); }, { passive: true, capture: true }));
+const idleCheck = () => { if (lockAfter && vault.key && D && Date.now() - lastActive > lockAfter * 60000) lockNow(); };
+setInterval(idleCheck, 20000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') idleCheck(); });
+
 function commit(fn, opts = {}) {
   if (!opts.noUndo) { undoStack.push(JSON.stringify(D)); if (undoStack.length > 25) undoStack.shift(); }
   fn();
@@ -428,8 +564,10 @@ function normalize(d) {
 /* ---------- OneDrive: Sichern und Laden ---------- */
 const FILE_NAME = 'Planbuch-Daten.json';
 async function saveFile() {
-  D.savedAt = new Date().toISOString();
-  const json = JSON.stringify(D, null, 1);
+  if (!D) return;
+  if (!vault.key) return needPassword();
+  if (fileCache.v !== version || saveTimer) await flushPersist();
+  const json = fileCache.json;
   const done = how => { meta.fileSavedAt = new Date().toISOString(); persist(); renderSide(); toast(how); };
   // 1) Chrome/Edge am Mac: einmal Datei im OneDrive-Ordner wählen, danach direkt speichern
   if (window.showSaveFilePicker) {
@@ -450,7 +588,7 @@ async function saveFile() {
   // 2) iPad/iPhone: Teilen-Menü → „In Dateien sichern“ → OneDrive
   if (navigator.canShare && navigator.canShare({ files: [file] }) && /iPad|iPhone|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document) {
     try { await navigator.share({ files: [file], title: 'Planbuch-Daten' }); return done('Datei übergeben. Wähle „In Dateien sichern“ → OneDrive.'); }
-    catch (e) { if (e.name === 'AbortError') return; }
+    catch (e) { if (e.name === 'AbortError') return; if (e.name === 'NotAllowedError') return toast('Bitte noch einmal auf „Sichern“ tippen.'); }
   }
   // 3) Sonst: Datei herunterladen
   const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = FILE_NAME;
@@ -461,10 +599,17 @@ function openFile() { const f = $('#file-in'); f.value = ''; f.click(); }
 $('#file-in').addEventListener('change', async e => {
   const f = e.target.files[0]; if (!f) return;
   try {
-    const d = JSON.parse(await f.text());
+    let d = JSON.parse(await f.text()), opened = null;
     if (d.app !== 'planbuch') throw new Error('keine Planbuch-Datei');
+    if (d.enc) {
+      if (sameVault(d)) { try { opened = { obj: await unseal(d, vault.key), key: vault.key, salt: vault.salt, iter: vault.iter }; } catch (e) { } }
+      if (!opened) { opened = await askFilePassword(d, f.name); if (!opened) return; }
+      d = opened.obj;
+    }
     const apply = () => {
       if (D) { undoStack.push(JSON.stringify(D)); }
+      // Das Passwort der Datei gilt dann auch auf diesem Gerät
+      if (opened) Object.assign(vault, { key: opened.key, salt: opened.salt, iter: opened.iter });
       D = normalize(d); version++; meta.fileSavedAt = new Date().toISOString(); meta.changedAt = meta.fileSavedAt; meta.fileName = f.name;
       persist(); pickDefaults(); render(); toast(`„${f.name}“ geladen`);
     };
@@ -550,13 +695,13 @@ function renderSide() {
       <div class="st"><span class="dot"></span>${!meta.fileSavedAt ? 'Noch nie auf OneDrive gesichert' : dirty ? 'Änderungen nicht gesichert' : 'Auf OneDrive gesichert'}</div>
       <div class="sub" style="font-size:.78rem">Zuletzt gesichert: ${when}</div>
       <div class="row" style="gap:6px"><button class="btn sm ${dirty ? 'warn' : ''}" data-act="save">${icon('cloud')}Sichern</button><button class="btn sm ghost" data-act="open">${icon('open')}Laden</button></div>
-      <button class="btn sm ghost" data-act="undo" ${undoStack.length ? '' : 'disabled'}>${icon('undo')}Rückgängig</button>
+      <div class="row" style="gap:6px"><button class="btn sm ghost" data-act="undo" ${undoStack.length ? '' : 'disabled'}>${icon('undo')}Rückgängig</button><button class="btn sm ghost" data-act="lock" title="App sperren">${icon('lock')}Sperren</button></div>
     </div>`;
 }
 function pageHead(title, sub, right = '') {
   const dirty = isDirty();
   return `<div class="head"><div class="l"><h1>${title}</h1>${sub ? `<span class="sub">${sub}</span>` : ''}</div><div class="row">${right}
-    <span class="mobile-save row" style="gap:6px"><button class="btn icon ${dirty ? 'warn' : ''}" data-act="save" title="Auf OneDrive sichern" aria-label="Auf OneDrive sichern">${icon('cloud')}</button><button class="btn icon" data-act="undo" title="Rückgängig" aria-label="Rückgängig" ${undoStack.length ? '' : 'disabled'}>${icon('undo')}</button></span></div></div>`;
+    <span class="mobile-save row" style="gap:6px"><button class="btn icon ${dirty ? 'warn' : ''}" data-act="save" title="Auf OneDrive sichern" aria-label="Auf OneDrive sichern">${icon('cloud')}</button><button class="btn icon" data-act="undo" title="Rückgängig" aria-label="Rückgängig" ${undoStack.length ? '' : 'disabled'}>${icon('undo')}</button><button class="btn icon" data-act="lock" title="App sperren" aria-label="App sperren">${icon('lock')}</button></span></div></div>`;
 }
 function render() {
   renderSide();
@@ -1190,6 +1335,12 @@ function vEinstellungen() {
         <p class="sub" style="margin:0">Alle Daten liegen in einer Datei „${FILE_NAME}“. Die App merkt sich deine Änderungen auf diesem Gerät, sichere sie aber regelmäßig auf OneDrive. Dann hast du sie auch auf dem anderen Gerät.</p>
         <ul class="sub" style="margin:0;padding-left:18px"><li><b>iPad:</b> „Sichern“ tippen → „In Dateien sichern“ → OneDrive → Ordner wählen → „Sichern“ (vorhandene Datei ersetzen).</li><li><b>Mac:</b> ${fsa ? 'Beim ersten Mal wählst du den OneDrive-Ordner, danach speichert „Sichern“ direkt dorthin.' : 'Am besten öffnest du die App in Microsoft Edge oder Chrome. Dann speichert „Sichern“ direkt in deinen OneDrive-Ordner.'}</li><li><b>Wechsel zwischen Geräten:</b> Auf dem anderen Gerät „Laden“ und die Datei aus OneDrive wählen.</li></ul>
         <div class="row"><button class="btn primary" data-act="save">${icon('cloud')}Jetzt sichern</button><button class="btn" data-act="open">${icon('open')}Datei laden</button>${fsa ? '<button class="btn ghost sm" data-act="forget-file">Anderen Speicherort wählen</button>' : ''}</div></div>
+      <div class="card" style="display:grid;gap:10px;align-content:start"><h2>Passwort &amp; Sperre</h2>
+        <p class="sub" style="margin:0">Deine Daten sind mit deinem Passwort verschlüsselt, auf diesem Gerät und in der Datei auf OneDrive. Ohne Passwort kann sie niemand öffnen. Vergisst du es, lassen sich die Daten nicht wiederherstellen.</p>
+        <div class="field-title">Automatisch sperren nach</div>
+        <div class="seg" style="justify-self:start">${[[5, '5'], [15, '15'], [30, '30'], [60, '60'], [0, 'nie']].map(([n, t]) => `<button class="${lockAfter === n ? 'on' : ''}" style="white-space:nowrap" data-act="lockafter" data-n="${n}">${t}</button>`).join('')}</div>
+        <p class="sub" style="margin:0">Minuten ohne Benutzung. Bei „nie“ sperrt sich die App erst, wenn du sie schließt.</p>
+        <div class="row"><button class="btn sm" data-act="lock">${icon('lock')}Jetzt sperren</button><button class="btn sm ghost" data-act="pw-change">Passwort ändern</button></div></div>
       <div class="card" style="display:grid;gap:10px;align-content:start"><h2>Datenschutz</h2><p class="sub" style="margin:0">Schülernamen, Noten und Anwesenheiten bleiben auf deinen Geräten und in deinem OneDrive. Die App schickt nichts an andere Server.</p>
         <h2 style="margin-top:8px">Auf diesem Gerät löschen</h2><p class="sub" style="margin:0">Entfernt alle Daten aus diesem Browser. Deine Datei auf OneDrive bleibt erhalten.</p><div><button class="btn sm" style="color:var(--koralle-ink)" data-act="wipe">${icon('trash')}Daten auf diesem Gerät löschen</button></div></div></div>`;
   } else {
@@ -1302,7 +1453,8 @@ function eventDrawer(id, date, type, st, et) {
 function moveIn(arr, item, n) { const i = arr.indexOf(item); const j = i + n; if (i < 0 || j < 0 || j >= arr.length) return; arr.splice(i, 1); arr.splice(j, 0, item); }
 const ACT = {
   go: el => { ui.view = el.dataset.v; try { history.replaceState(null, '', '#' + ui.view); } catch (e) { } closeLayer(); render(); $('#main').scrollTop = 0; },
-  save: () => saveFile(), open: () => openFile(), undo: () => undo(),
+  save: () => saveFile(), open: () => openFile(), undo: () => undo(), lock: () => lockNow(), 'pw-change': () => changePassword(),
+  lockafter: el => { lockAfter = +el.dataset.n; idb.set('lockAfter', lockAfter).catch(() => { }); render(); },
   scrim: (el, ev) => { if (ev.target === el) closeLayer(); }, close: () => { closeLayer(); render(); },
   'confirm-no': () => { $('#confirm')?.remove(); confirmFn = null; },
   'confirm-yes': () => { const f = confirmFn; $('#confirm')?.remove(); confirmFn = null; f && f(); },
@@ -1383,7 +1535,7 @@ const ACT = {
   'slot-del': el => commit(() => { courseById(el.dataset.c).slots.splice(+el.dataset.i, 1); }),
   'extra-del': el => commit(() => { courseById(el.dataset.c).extra.splice(+el.dataset.i, 1); }),
   'forget-file': async () => { await idb.del('fileHandle').catch(() => { }); toast('Beim nächsten Sichern wählst du den Speicherort neu.'); },
-  wipe: () => confirmBox('Alle Daten auf diesem Gerät löschen?', 'Die App ist danach leer. Deine Datei auf OneDrive bleibt erhalten und du kannst sie wieder laden.', 'Löschen', async () => { await idb.del('data').catch(() => { }); await idb.del('meta').catch(() => { }); try { localStorage.removeItem('planbuch-data'); } catch (e) { } location.reload(); }),
+  wipe: () => confirmBox('Alle Daten auf diesem Gerät löschen?', 'Die App ist danach leer. Deine Datei auf OneDrive bleibt erhalten und du kannst sie wieder laden.', 'Löschen', async () => { await idb.del('data').catch(() => { }); await idb.del('meta').catch(() => { }); try { localStorage.removeItem('planbuch-data'); localStorage.removeItem('planbuch-meta'); } catch (e) { } leaving = true; location.reload(); }),
   'demo': () => { D = normalize(demoData()); version++; meta.changedAt = new Date().toISOString(); persist(); pickDefaults(); render(); },
 };
 function stepOcc(n) {
@@ -1493,7 +1645,7 @@ document.addEventListener('keydown', ev => {
   if ((ev.metaKey || ev.ctrlKey) && ev.key === 's') { ev.preventDefault(); saveFile(); }
   if ((ev.metaKey || ev.ctrlKey) && ev.key === 'z' && !ev.target.closest('input,textarea,[contenteditable]')) { ev.preventDefault(); undo(); }
 });
-window.addEventListener('beforeunload', ev => { if (isDirty()) { ev.preventDefault(); ev.returnValue = ''; } });
+window.addEventListener('beforeunload', ev => { if (D && !leaving && isDirty()) { ev.preventDefault(); ev.returnValue = ''; } });
 
 /* ---------- Start ---------- */
 function pickDefaults() { ui.courseId = D.courses[0]?.id; ui.classId = D.classes[0]?.id; ui.focusKey = null; ui.week = schoolWeek(); }
@@ -1504,7 +1656,7 @@ function welcome() {
     <div class="brand welcome-brand" style="padding:0"><svg width="44" height="44" viewBox="0 0 34 34"><rect width="34" height="34" rx="10" fill="var(--tuerkis-bg)"/><rect x="8" y="9" width="18" height="17" rx="3" fill="none" stroke="var(--tuerkis-ink)" stroke-width="1.8"/><path d="M8 14h18" stroke="var(--tuerkis-ink)" stroke-width="1.8"/><circle cx="13" cy="19.5" r="1.8" fill="var(--koralle)"/><circle cx="18.5" cy="19.5" r="1.8" fill="var(--lila)"/></svg><div><b style="font-size:1.4rem">Planbuch</b><small>Unterrichtsplanung, Kalender und Schülerlisten</small></div></div>
     <p style="margin:0">Lade deine Datei „${FILE_NAME}“ aus OneDrive. Danach arbeitet die App auch ohne Internet weiter.</p>
     <div class="row"><button class="btn primary" data-act="open">${icon('open')}Datei aus OneDrive laden</button><button class="btn" data-act="demo">Mit leerem Planbuch beginnen</button></div>
-    <p class="sub" style="margin:0">Deine Daten bleiben auf deinem Gerät und in deinem OneDrive.</p></div></div>`;
+    <p class="sub" style="margin:0">Deine Daten bleiben auf deinem Gerät und in deinem OneDrive. Beim ersten Start legst du ein Passwort fest, mit dem sie verschlüsselt werden.</p></div></div>`;
 }
 function demoData() {
   const y = new Date().getMonth() >= 7 ? new Date().getFullYear() : new Date().getFullYear() - 1;
@@ -1515,9 +1667,12 @@ function demoData() {
 (async function start() {
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { });
   const h = location.hash.slice(1); if (VIEWS.some(v => v[0] === h)) ui.view = h;
-  if (await loadLocal()) { normalize(D); pickDefaults(); render(); }
-  else welcome();
-  setInterval(() => { if (ui.view === 'heute' && !drawerFn && !document.activeElement?.closest('input,textarea,[contenteditable]')) render(); }, 60000);
+  lockAfter = (await idb.get('lockAfter').catch(() => null)) ?? 15;
+  const loc = await readLocal().catch(() => null);
+  if (!loc) welcome();
+  else if (loc.box) showUnlock(loc.box);
+  else { D = normalize(loc.plain); Object.assign(meta, loc.meta); pickDefaults(); needPassword(); }
+  setInterval(() => { if (D && !$('#lock') && ui.view === 'heute' && !drawerFn && !document.activeElement?.closest('input,textarea,[contenteditable]')) render(); }, 60000);
 })();
 </script>
 </body>
