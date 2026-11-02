@@ -161,6 +161,10 @@ table.st td.cell{text-align:center;padding:3px;width:52px}
 .evt.vacation{background:var(--mint-bg);color:var(--mint-ink);font-weight:700}
 .evt.supervision{background:var(--blau-bg);color:var(--blau-ink)}
 .evt.private{background:var(--rosa-bg);color:var(--rosa-ink)}
+.week .c .evt{padding:4px 6px}
+.week .add{border:1px dashed transparent;background:none;border-radius:6px;color:var(--faint);font-size:.8rem;min-height:22px;cursor:pointer;opacity:0;transition:opacity .15s}
+.week .c:hover .add,.week .ev:hover .add,.week .add:focus-visible{opacity:1;border-color:var(--line)}
+@media (hover:none){.week .add{opacity:.45}}
 .evt.consultation{background:var(--sonne-bg);color:var(--sonne-ink)}
 .mini{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:.78rem;text-align:center}
 .mini .wd{color:var(--faint);font-weight:700;padding:3px 0}
@@ -730,17 +734,20 @@ function vKalender() {
   const occ = allOcc().filter(o => o.date >= ui.week && o.date <= addDays(ui.week, 6));
   const cols = `grid-template-columns:62px repeat(${days.length},minmax(0,1fr))`;
   let html = `<div class="week" style="${cols}"><div class="h"></div>${days.map(d => `<div class="h ${d === t ? 'today' : ''}">${WD[weekday(d)]} ${dm(d)}</div>`).join('')}`;
-  html += `<div class="p">Termine</div>${days.map(d => `<div class="ev">${eventsOn(d).map(e => `<button class="evt ${e.type}" data-act="event" data-id="${e.id}">${e.startTime && e.start === d ? e.startTime + ' ' : ''}${esc(e.title)}</button>`).join('')}<button class="btn ghost sm" style="justify-self:start;padding:0 6px;color:var(--faint)" data-act="event-new" data-d="${d}" aria-label="Termin anlegen">+</button></div>`).join('')}`;
+  const inPeriod = e => e.type !== 'vacation' && e.startTime && e.startTime >= (D.periods[0]?.start || '') && D.periods.find(p => e.startTime < p.end)?.n;
+  const evBtn = (e, d) => `<button class="evt ${e.type}" data-act="event" data-id="${e.id}">${e.startTime && e.start === d ? e.startTime + ' ' : ''}${esc(e.title)}</button>`;
+  html += `<div class="p">Termine</div>${days.map(d => `<div class="ev">${eventsOn(d).filter(e => !(e.start === d && inPeriod(e))).map(e => evBtn(e, d)).join('')}<button class="add" data-act="event-new" data-d="${d}" aria-label="Ganztägigen Termin am ${dm(d)} anlegen">+ Termin</button></div>`).join('')}`;
   D.periods.forEach(p => {
     html += `<div class="p"><b>${p.n}</b>${p.start}</div>`;
     days.forEach(d => {
       const here = occ.filter(o => o.date === d && periodOf(o.start) === p.n);
-      html += `<div class="c ${vac.has(d) ? 'vac' : ''}">${here.map(o => lesChip(o)).join('')}</div>`;
+      const evs = eventsOn(d).filter(e => e.start === d && inPeriod(e) === p.n);
+      html += `<div class="c ${vac.has(d) ? 'vac' : ''}">${here.map(o => lesChip(o)).join('')}${evs.map(e => evBtn(e, d)).join('')}<button class="add" data-act="event-new" data-d="${d}" data-st="${p.start}" data-et="${p.end}" aria-label="Termin am ${dm(d)} in der ${p.n}. Stunde anlegen">+</button></div>`;
     });
   });
   html += '</div>';
   const wk = ui.week;
-  const right = `<button class="btn icon" data-act="wk" data-n="-7" aria-label="Vorige Woche">${icon('left')}</button><button class="btn sm" data-act="wk-now">Diese Woche</button><button class="btn icon" data-act="wk" data-n="7" aria-label="Nächste Woche">${icon('right')}</button>`;
+  const right = `<button class="btn sm primary" data-act="event-new" data-d="${days.includes(t) ? t : days[0]}">${icon('plus')}Termin</button><button class="btn icon" data-act="wk" data-n="-7" aria-label="Vorige Woche">${icon('left')}</button><button class="btn sm" data-act="wk-now">Diese Woche</button><button class="btn icon" data-act="wk" data-n="7" aria-label="Nächste Woche">${icon('right')}</button>`;
   const noteKey = wk;
   return pageHead('Kalender', `KW ${kw(wk)} · ${dm(wk)}–${dmy(addDays(wk, 4))}`, right) + `
   <div class="cal-wrap"><div class="scroll-x">${html}</div>
@@ -1273,10 +1280,10 @@ function occDrawer(cid, key) {
   };
   drawer(body, 'occ');
 }
-function eventDrawer(id, date, type) {
+function eventDrawer(id, date, type, st, et) {
   let e = D.events.find(x => x.id === id);
   const isNew = !e;
-  if (isNew) e = { id: uid(), type: type || 'school', title: '', start: date || todayIso(), end: date || todayIso(), startTime: null, endTime: null, note: '' };
+  if (isNew) e = { id: uid(), type: type || 'school', title: '', start: date || todayIso(), end: date || todayIso(), startTime: st || null, endTime: et || null, note: '' };
   const draft = { ...e };
   const body = () => `<div class="dh"><h2>${isNew ? 'Neuer Termin' : 'Termin'}</h2><button class="btn icon ghost" data-act="close" aria-label="Schließen">${icon('x')}</button></div>
     <form data-form="event" data-id="${e.id}" style="display:grid;gap:12px">
@@ -1288,6 +1295,7 @@ function eventDrawer(id, date, type) {
       <div class="row" style="justify-content:space-between"><button class="btn primary">${isNew ? 'Anlegen' : 'Speichern'}</button>${isNew ? '' : `<button type="button" class="btn sm ghost" style="color:var(--koralle-ink)" data-act="event-del" data-id="${e.id}">${icon('trash')}Löschen</button>`}</div>
     </form>`;
   drawer(body, 'event');
+  if (isNew) setTimeout(() => $('#ev-title')?.focus(), 50);
 }
 
 /* ---------- Ereignisse ---------- */
@@ -1318,7 +1326,7 @@ const ACT = {
   'wk-now': () => { ui.week = schoolWeek(); ui.miniMonth = ui.week; render(); },
   mm: el => { const d = parse(ui.miniMonth || ui.week); d.setDate(1); d.setMonth(d.getMonth() + +el.dataset.n); ui.miniMonth = iso(d); render(); },
   'mm-day': el => { ui.week = monday(el.dataset.d); render(); },
-  event: el => eventDrawer(el.dataset.id), 'event-new': el => eventDrawer(null, el.dataset.d, el.dataset.t),
+  event: el => eventDrawer(el.dataset.id), 'event-new': el => eventDrawer(null, el.dataset.d, el.dataset.t, el.dataset.st, el.dataset.et),
   'event-del': el => confirmBox('Termin löschen?', 'Der Termin wird entfernt.', 'Löschen', () => { commit(() => { D.events = D.events.filter(e => e.id !== el.dataset.id); }); closeLayer(); }),
   'pick-course': el => { ui.courseId = el.dataset.c; ui.openLesson = null; render(); },
   'unit-open': el => { const c = courseById(ui.courseId); const u = c.units.find(x => x.id === el.dataset.u); const cur = ui.openUnits[u.id] ?? !!u.lessons.find(l => l.id === ui.openLesson); ui.openUnits[u.id] = !cur; render(); },
