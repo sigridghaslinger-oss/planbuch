@@ -132,6 +132,9 @@ label.f > input,label.f > select,label.f > textarea{color:var(--ink);font-weight
 #mx table.st .nm{position:sticky;left:0;z-index:2;background:var(--surface);box-shadow:1px 0 0 var(--line)}
 #mx table.st thead .nm{z-index:3}
 #mx.scrolled table.st .nm{box-shadow:4px 0 8px -4px rgba(47,49,73,.25)}
+#swx table.st .nm{position:sticky;left:0;z-index:2;background:var(--surface);box-shadow:1px 0 0 var(--line)}
+#swx table.st thead .nm{z-index:3}
+#swx th.now,#swx td.now{background:var(--accent-bg)}
 #mx .nm .n{display:inline-block;min-width:20px;color:var(--faint);font-variant-numeric:tabular-nums;font-size:.8rem}
 table.st{border-collapse:separate;border-spacing:0;width:100%;font-size:.9rem}
 table.st th,table.st td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;white-space:nowrap}
@@ -597,11 +600,14 @@ function undo() {
 }
 const isDirty = () => !meta.fileSavedAt || (meta.changedAt && meta.changedAt > meta.fileSavedAt);
 
+const SWIM = /schwimm/i;
+const swimCol = c => c.columns.find(x => x.type !== 'text' && SWIM.test(x.title));
 function normalize(d) {
   d.classes ||= []; d.courses ||= []; d.checklists ||= []; d.childNotes ||= {}; d.events ||= []; d.weekNotes ||= {}; d.notes ||= []; d.reminders ||= [];
   d.periods ||= []; d.year ||= { title: 'Schuljahr', start: todayIso(), end: addDays(todayIso(), 300), days: [1, 2, 3, 4, 5] };
   d.courses.forEach(c => { c.units ||= []; c.slots ||= []; c.extra ||= []; c.homework ||= []; c.cancelled ||= []; c.columns ||= []; c.entries ||= {}; c.lessonNotes ||= {}; c.attendance ||= {}; c.color ||= 'tuerkis'; });
   d.classes.forEach(k => { k.students ||= []; });
+  d.courses.forEach(c => { if (!swimCol(c) && c.units.some(u => u.lessons.some(l => SWIM.test(l.title || '')))) c.columns.unshift({ id: uid(), title: 'Schwimmen', type: 'symbols', options: [{ id: uid(), symbol: '✓', style: 'good', label: 'Teilnahme' }, { id: uid(), symbol: 'K', style: 'grey', label: 'krank' }, { id: uid(), symbol: 'P', style: 'lila', label: 'Periode' }, { id: uid(), symbol: 'S', style: 'bad', label: 'kein Schwimmzeug' }, { id: uid(), symbol: 'E', style: 'info', label: 'entschuldigt' }] }); });
   return d;
 }
 
@@ -777,6 +783,7 @@ document.addEventListener('scroll', ev => { if (ev.target.id === 'mx') mxHint();
 addEventListener('resize', mxHint);
 function afterRender() {
   mxHint();
+  const sw = $('#swx'); if (sw && ui.swimAt !== ui.focusKey) { ui.swimAt = ui.focusKey; const th = sw.querySelector('th.now') || [...sw.querySelectorAll('thead th.cell')].pop(); if (th) sw.scrollLeft = Math.max(0, th.offsetLeft - sw.clientWidth / 2); }
   $$('[data-rte]').forEach(el => { el.innerHTML = sanitize(el.dataset.html || ''); });
 }
 
@@ -836,7 +843,24 @@ function vHeute() {
       ${hwGiveHtml(c, o, l)}
       ${todayRem.length ? `<div class="card"><h3 style="margin-bottom:8px">Fällige Erinnerungen</h3><ul class="reminders" style="list-style:none;margin:0;padding:0;display:grid;gap:6px">${todayRem.map(r => `<li><button class="check" data-act="rem-done" data-id="${r.id}" aria-label="erledigt"></button>${esc(r.text)}<span class="sub">${dm(r.date)}</span></li>`).join('')}</ul></div>` : ''}
     </div>
-  </div>`;
+  </div>
+  ${swimHtml(c, o, studs)}`;
+}
+// Anwesenheit beim Schwimmen: eine Spalte je Schwimmstunde bis Ende April
+function swimHtml(c, o, studs) {
+  const col = swimCol(c); if (!col || !studs.length) return '';
+  const lim = `${+D.year.start.slice(0, 4) + 1}-04-30`;
+  const occs = planOf(c).occ.filter(x => !x.cancelled && x.lesson && SWIM.test(x.lesson.title || '') && x.date <= lim);
+  const byDate = Object.fromEntries(occs.map(x => [x.date, x]));
+  const dates = [...new Set([...occs.map(x => x.date), ...Object.values(c.entries[col.id] || {}).flatMap(e => Object.keys(e))])].sort();
+  if (!dates.length) return '';
+  const nr = d => (byDate[d]?.lesson.title.match(/schwimmen\s*(\d+)/i) || [])[1];
+  const cnt = (st, style) => dates.filter(d => optOf(col, c.entries[col.id]?.[st.id]?.[d])?.style === style).length;
+  return `<div class="card" style="margin-top:18px"><div class="head" style="margin-bottom:8px"><h2>Schwimmen – Anwesenheit bis April <span class="sub">${dates.length} Termine</span></h2>
+      <div class="row" style="gap:10px;flex-wrap:wrap">${col.options.map(op => `<span class="lg"><span class="mark set m-${op.style}" style="width:24px;height:22px;font-size:.8rem;cursor:default">${esc(op.symbol)}</span> ${esc(op.label || '')}</span>`).join('')}</div></div>
+    <div class="mx-wrap"><div class="scroll-x" id="swx" data-keepx><table class="st"><thead><tr><th class="nm">Name</th>${dates.map(d => `<th class="cell ${d === o.date ? 'now' : ''}" style="text-align:center" title="${esc(byDate[d]?.lesson.title || 'kein Schwimmtermin mehr')}"><span class="vth">${WD[weekday(d)]} ${dm(d)}${nr(d) ? ' · S' + nr(d) : ''}</span></th>`).join('')}<th title="Teilnahme">✓</th><th title="kein Schwimmzeug">ohne Zeug</th></tr></thead><tbody>
+    ${studs.map((st, i) => `<tr><td class="nm"><span class="n">${esc(st.number || String(i + 1))}</span> ${esc(st.last)}${st.first ? ', ' + esc(st.first) : ''}</td>${dates.map(d => cellHtml(c, col, st, d).replace('<td class="cell">', `<td class="cell ${d === o.date ? 'now' : ''}">`)).join('')}<td class="sum">${cnt(st, 'good') || '–'}</td><td class="sum">${cnt(st, 'bad') ? `<b style="color:var(--koralle-ink)">${cnt(st, 'bad')}</b>` : '–'}</td></tr>`).join('')}</tbody></table></div></div>
+    <div class="sub" style="margin-top:8px">Tippe auf ein Feld, um weiterzuschalten: ✓ Teilnahme → K krank → P Periode → S kein Schwimmzeug → E entschuldigt → leer. Die Spalte des gewählten Tages ist hervorgehoben. Die Termine ergeben sich aus der Stoffverteilung: Verschiebst du eine Schwimmstunde, wandert die Spalte mit.</div></div>`;
 }
 function optOf(col, v) { return (col.options || []).find(o => o.id === v); }
 /* ---------- Hausübungen: aufgeben, mit der Abgabestunde verknüpfen, kontrollieren ---------- */
