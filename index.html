@@ -190,13 +190,21 @@ table.st td.cell{text-align:center;padding:3px;width:52px}
 .unit .uh{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--c-bg)}
 .unit .uh input{flex:1;border:0;background:transparent;font-family:var(--font-display);font-weight:500;font-size:1rem;color:var(--c-ink);padding:4px 6px;border-radius:6px;min-width:120px}
 .unit .uh input:focus{background:var(--surface);outline:none}
-.lrow{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;padding:7px 12px;border-top:1px solid var(--line)}
+.lrow .drag{width:22px;height:30px;display:grid;place-items:center;color:var(--faint);cursor:grab;touch-action:none;border:0;background:none;padding:0;border-radius:6px}
+.lrow .drag:hover{color:var(--muted);background:var(--surface)}
+.lrow.dragging{opacity:.45}
+.lrow.drop-before{box-shadow:inset 0 3px 0 var(--accent)}
+.lrow.drop-after{box-shadow:inset 0 -3px 0 var(--accent)}
+.uh.drop-into{box-shadow:inset 0 -3px 0 var(--accent)}
+body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
+.lrow{display:grid;grid-template-columns:22px 28px 1fr auto;gap:8px;align-items:center;padding:7px 12px;border-top:1px solid var(--line)}
 .lrow .lt{display:flex;flex-direction:column;min-width:0;cursor:pointer}
 .lrow .lt b{font-weight:600;overflow:hidden;text-overflow:ellipsis}
 .lrow .lt small{color:var(--muted);font-size:.78rem}
 .lrow.open{background:var(--soft)}
 .lrow.buffer .lt b,.les.buffer span,.dist .d.buffer .t{color:var(--faint);font-style:italic}
-.ledit{padding:12px;border-top:1px dashed var(--line-strong);background:var(--soft);display:grid;gap:10px}
+.ledit .ledit-x{position:absolute;top:6px;right:6px}
+.ledit{position:relative;padding:12px;border-top:1px dashed var(--line-strong);background:var(--soft);display:grid;gap:10px}
 .check{width:22px;height:22px;border-radius:50%;border:2px solid var(--line-strong);background:var(--surface);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
 .check.on{background:var(--mint);border-color:var(--mint)}
 .check.on::after{content:"";width:9px;height:5px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) translate(1px,-1px)}
@@ -364,6 +372,7 @@ const I = {
   plus: '<path d="M12 5v14M5 12h14"/>', x: '<path d="M6 6l12 12M18 6 6 18"/>',
   up: '<path d="m6 15 6-6 6 6"/>', down: '<path d="m6 9 6 6 6-6"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  grip: '<circle cx="9" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1.3" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.3" fill="currentColor" stroke="none"/>',
   lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
   undo: '<path d="M9 7 4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12h-2" transform="translate(0 -6)"/>',
   cloud: '<path d="M7 18h10a4 4 0 0 0 .6-8A6 6 0 0 0 6.2 9 4.5 4.5 0 0 0 7 18z"/><path d="M12 11v5M9.5 13.5 12 16l2.5-2.5"/>',
@@ -957,7 +966,7 @@ function unitHtml(c, u, idx) {
   const pl = planOf(c);
   const first = u.lessons.map(l => pl.byLesson[l.id]?.[0]).find(Boolean);
   const last = [...u.lessons].reverse().map(l => { const a = pl.byLesson[l.id]; return a && a[a.length - 1]; }).find(Boolean);
-  return `<div class="unit c-${c.color}"><div class="uh">
+  return `<div class="unit c-${c.color}"><div class="uh" data-u="${u.id}">
     <button class="btn icon ghost" data-act="unit-open" data-u="${u.id}" aria-label="auf-/zuklappen">${icon(open ? 'down' : 'right')}</button>
     <input type="text" id="ut-${u.id}" value="${esc(u.title)}" data-bind="unitTitle" data-c="${c.id}" data-u="${u.id}" aria-label="Name der Sequenz">
     <span class="pill">${len} Std${first ? ` · ${dm(first.date)}–${dm(last.date)}` : ''}</span>
@@ -966,18 +975,18 @@ function unitHtml(c, u, idx) {
     <button class="btn icon ghost" data-act="unit-move" data-c="${c.id}" data-u="${u.id}" data-n="1" ${idx === c.units.length - 1 ? 'disabled' : ''} aria-label="nach unten">${icon('down')}</button>
     <button class="btn icon ghost" data-act="unit-del" data-c="${c.id}" data-u="${u.id}" aria-label="Sequenz löschen">${icon('trash')}</button>
   </div>
-  ${open ? u.lessons.map((l, i) => lessonRow(c, u, l, i)).join('') + `<div class="lrow"><span></span><button class="btn sm ghost" style="justify-self:start" data-act="lesson-add" data-c="${c.id}" data-u="${u.id}">${icon('plus')}Stunde</button><span></span></div>` : ''}
+  ${open ? u.lessons.map((l, i) => lessonRow(c, u, l, i)).join('') + `<div class="lrow"><span></span><span></span><button class="btn sm ghost" style="justify-self:start" data-act="lesson-add" data-c="${c.id}" data-u="${u.id}">${icon('plus')}Stunde</button><span></span></div>` : ''}
   </div>`;
 }
 function lessonRow(c, u, l, i) {
   const pl = planOf(c); const occ = pl.byLesson[l.id] || [];
   const when = occ.length ? occ.map(o => `${WD[weekday(o.date)]} ${dm(o.date)}`).join(', ') : 'kein Termin mehr frei';
   const open = ui.openLesson === l.id;
-  let h = `<div class="lrow ${open ? 'open' : ''} ${l.buffer ? 'buffer' : ''}"><button class="check ${l.done ? 'on' : ''}" data-act="done" data-c="${c.id}" data-l="${l.id}" aria-label="erledigt"></button>
+  let h = `<div class="lrow ${open ? 'open' : ''} ${l.buffer ? 'buffer' : ''}" data-l="${l.id}"><button class="drag" data-c="${c.id}" data-l="${l.id}" title="Ziehen zum Verschieben" aria-label="Stunde verschieben">${icon('grip')}</button><button class="check ${l.done ? 'on' : ''}" data-act="done" data-c="${c.id}" data-l="${l.id}" aria-label="erledigt"></button>
     <div class="lt" data-act="lesson-toggle" data-l="${l.id}"><b>${esc(l.title || 'Ohne Titel')}</b><small>${when}${l.content ? ' · ' + esc(stripHtml(l.content).slice(0, 70)) : ''}</small></div>
     <div class="row" style="gap:4px"><span class="len"><button data-act="len" data-c="${c.id}" data-l="${l.id}" data-n="-1" aria-label="kürzer">−</button>${l.length || 1}&nbsp;Std<button data-act="len" data-c="${c.id}" data-l="${l.id}" data-n="1" aria-label="länger">+</button></span>
-    <button class="btn icon ghost" data-act="lesson-move" data-c="${c.id}" data-l="${l.id}" data-n="-1" aria-label="nach oben">${icon('up')}</button><button class="btn icon ghost" data-act="lesson-move" data-c="${c.id}" data-l="${l.id}" data-n="1" aria-label="nach unten">${icon('down')}</button></div></div>`;
-  if (open) h += `<div class="ledit">${lessonEditor(c, u, l)}</div>`;
+    <button class="btn icon ghost" data-act="lesson-move" data-c="${c.id}" data-l="${l.id}" data-n="-1" aria-label="nach oben">${icon('up')}</button><button class="btn icon ghost" data-act="lesson-move" data-c="${c.id}" data-l="${l.id}" data-n="1" aria-label="nach unten">${icon('down')}</button><button class="btn icon ghost" data-act="lesson-insert" data-c="${c.id}" data-l="${l.id}" title="Neue Stunde danach einschieben" aria-label="Neue Stunde danach einschieben">${icon('plus')}</button></div></div>`;
+  if (open) h += `<div class="ledit"><button class="btn icon ghost ledit-x" data-act="lesson-close" aria-label="Schließen">${icon('x')}</button>${lessonEditor(c, u, l)}<div class="row" style="justify-content:flex-end"><button class="btn primary" data-act="lesson-close">OK</button></div></div>`;
   return h;
 }
 function lessonEditor(c, u, l) {
@@ -1427,7 +1436,7 @@ function occDrawer(cid, key) {
     ${o.cancelled ? `<div class="card" style="background:var(--soft)"><b>Diese Stunde entfällt.</b><div class="sub">Der Stoff rückt in die nächste Stunde weiter.</div><button class="btn sm" style="margin-top:8px" data-act="uncancel" data-c="${c.id}" data-k="${key}">Doch stattfinden lassen</button></div>`
       : l ? `<div class="unitline">${esc(u.title)}${l.length > 1 ? ` · Teil ${o.part} von ${l.length}` : ''}</div><div class="row"><button class="check ${l.done ? 'on' : ''}" data-act="done" data-c="${c.id}" data-l="${l.id}" aria-label="erledigt"></button><span class="sub">${l.done ? 'Erledigt' : 'Noch offen'}</span></div>${lessonEditor(c, u, l)}`
       : `<div class="sub">Für diesen Termin ist im Stoffplan noch keine Stunde vorgesehen.</div><button class="btn sm" data-act="go-plan" data-c="${c.id}">Zur Unterrichtsplanung</button>`}
-    ${!o.cancelled ? `<div class="row" style="border-top:1px solid var(--line);padding-top:12px"><button class="btn sm" data-act="cancel-occ" data-c="${c.id}" data-k="${key}">Stunde entfällt</button><button class="btn sm ghost" data-act="occ-today" data-c="${c.id}" data-k="${key}">In „Heute“ öffnen</button></div>` : ''}`;
+    ${!o.cancelled ? `<div class="row" style="border-top:1px solid var(--line);padding-top:12px">${l ? `<button class="btn sm" data-act="occ-insert" data-c="${c.id}" data-k="${key}" title="Neue Stunde an diesem Termin, alles Weitere rückt nach">${icon('plus')}Stunde einschieben</button>` : ''}<button class="btn sm" data-act="cancel-occ" data-c="${c.id}" data-k="${key}">Stunde entfällt</button><button class="btn sm ghost" data-act="occ-today" data-c="${c.id}" data-k="${key}">In „Heute“ öffnen</button></div>` : ''}`;
   };
   drawer(body, 'occ');
 }
@@ -1450,6 +1459,46 @@ function eventDrawer(id, date, type, st, et) {
 }
 
 /* ---------- Ereignisse ---------- */
+const newLesson = () => ({ id: uid(), title: '', length: 1, done: false, content: '', material: '', homework: '' });
+const focusLesson = id => setTimeout(() => { const i = $(`#lt-${id}`); i?.scrollIntoView({ block: 'center', behavior: 'smooth' }); i?.focus({ preventScroll: true }); }, 40);
+
+/* Stunden per Ziehen verschieben (Maus, Stift und Finger) */
+let drag = null;
+function dragClear() { $$('.drop-before,.drop-after,.drop-into').forEach(x => x.classList.remove('drop-before', 'drop-after', 'drop-into')); }
+document.addEventListener('pointerdown', ev => {
+  const h = ev.target.closest('.lrow .drag'); if (!h || ev.button > 0) return;
+  ev.preventDefault();
+  drag = { c: h.dataset.c, l: h.dataset.l, row: h.closest('.lrow'), target: null, y: ev.clientY, timer: null };
+  drag.row.classList.add('dragging'); document.body.classList.add('is-dragging');
+  try { h.setPointerCapture(ev.pointerId); } catch (e) { }
+  // am Rand automatisch scrollen
+  drag.timer = setInterval(() => { const m = $('.main'); if (!m || !drag) return; const r = m.getBoundingClientRect(); if (drag.y < r.top + 70) m.scrollTop -= 14; else if (drag.y > r.bottom - 70) m.scrollTop += 14; }, 30);
+});
+document.addEventListener('pointermove', ev => {
+  if (!drag) return;
+  drag.y = ev.clientY; dragClear(); drag.target = null;
+  const el = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.lrow[data-l], .uh[data-u]');
+  if (!el || el === drag.row) return;
+  if (el.dataset.u) { el.classList.add('drop-into'); drag.target = { u: el.dataset.u }; return; }
+  const r = el.getBoundingClientRect(); const before = ev.clientY < r.top + r.height / 2;
+  el.classList.add(before ? 'drop-before' : 'drop-after'); drag.target = { l: el.dataset.l, before };
+});
+function dragEnd(ev) {
+  if (!drag) return;
+  const d = drag; drag = null; clearInterval(d.timer); dragClear();
+  d.row.classList.remove('dragging'); document.body.classList.remove('is-dragging');
+  if (ev.type !== 'pointerup' || !d.target) return;
+  const c = courseById(d.c); const src = findLesson(c, d.l); if (!src.l) return;
+  commit(() => {
+    src.u.lessons.splice(src.u.lessons.indexOf(src.l), 1);
+    if (d.target.u) { const t = c.units.find(x => x.id === d.target.u); t.lessons.unshift(src.l); ui.openUnits[t.id] = true; }
+    else { const t = findLesson(c, d.target.l); t.u.lessons.splice(t.u.lessons.indexOf(t.l) + (d.target.before ? 0 : 1), 0, src.l); }
+  });
+  toast('Stunde verschoben');
+}
+document.addEventListener('pointerup', dragEnd);
+document.addEventListener('pointercancel', dragEnd);
+
 function moveIn(arr, item, n) { const i = arr.indexOf(item); const j = i + n; if (i < 0 || j < 0 || j >= arr.length) return; arr.splice(i, 1); arr.splice(j, 0, item); }
 const ACT = {
   go: el => { ui.view = el.dataset.v; try { history.replaceState(null, '', '#' + ui.view); } catch (e) { } closeLayer(); render(); $('#main').scrollTop = 0; },
@@ -1486,7 +1535,16 @@ const ACT = {
   'unit-add': el => commit(() => { const u = { id: uid(), title: 'Neue Sequenz', lessons: [{ id: uid(), title: '', length: 1, done: false, content: '', material: '', homework: '' }] }; courseById(el.dataset.c).units.push(u); ui.openUnits[u.id] = true; setTimeout(() => { const i = $(`#ut-${u.id}`); i?.focus(); i?.select(); }, 30); }),
   'unit-move': el => commit(() => { const c = courseById(el.dataset.c); moveIn(c.units, c.units.find(u => u.id === el.dataset.u), +el.dataset.n); }),
   'unit-del': el => { const c = courseById(el.dataset.c); const u = c.units.find(x => x.id === el.dataset.u); confirmBox('Sequenz löschen?', `„${u.title}“ und ihre ${u.lessons.length} Stunden werden gelöscht. Mit „Rückgängig“ holst du sie zurück.`, 'Löschen', () => commit(() => { c.units = c.units.filter(x => x !== u); })); },
-  'lesson-add': el => commit(() => { const u = courseById(el.dataset.c).units.find(x => x.id === el.dataset.u); const l = { id: uid(), title: '', length: 1, done: false, content: '', material: '', homework: '' }; u.lessons.push(l); ui.openLesson = l.id; setTimeout(() => $(`#lt-${l.id}`)?.focus(), 30); }),
+  'lesson-add': el => { const u = courseById(el.dataset.c).units.find(x => x.id === el.dataset.u); const l = newLesson(); commit(() => { u.lessons.push(l); ui.openLesson = l.id; }); focusLesson(l.id); },
+  'lesson-insert': el => { const c = courseById(el.dataset.c); const { u, l } = findLesson(c, el.dataset.l); const n = newLesson(); commit(() => { u.lessons.splice(u.lessons.indexOf(l) + 1, 0, n); ui.openLesson = n.id; }); focusLesson(n.id); toast('Neue Stunde eingeschoben. Die folgenden Stunden rücken nach.'); },
+  'lesson-close': () => { ui.openLesson = null; render(); },
+  'occ-insert': el => {
+    const c = courseById(el.dataset.c); const o = planOf(c).byKey[el.dataset.k]; if (!o?.lesson) return;
+    const n = newLesson(); const after = o.part > 1;   // mitten in einer Doppelstunde: danach einschieben
+    commit(() => { o.unit.lessons.splice(o.unit.lessons.indexOf(o.lesson) + (after ? 1 : 0), 0, n); });
+    refreshDrawer(); setTimeout(() => { const i = $(`#lt-${n.id}`); i?.focus(); }, 40);
+    toast(after ? 'Neue Stunde nach dieser Doppelstunde eingeschoben. Alles Weitere rückt nach.' : 'Neue Stunde eingeschoben. Alles Weitere rückt nach.');
+  },
   'lesson-toggle': el => { ui.openLesson = ui.openLesson === el.dataset.l ? null : el.dataset.l; render(); },
   'lesson-move': el => commit(() => { const c = courseById(el.dataset.c); const { u, l } = findLesson(c, el.dataset.l); const i = u.lessons.indexOf(l); const j = i + +el.dataset.n; if (j >= 0 && j < u.lessons.length) moveIn(u.lessons, l, +el.dataset.n); else { const ui2 = c.units.indexOf(u) + +el.dataset.n; const t = c.units[ui2]; if (t) { u.lessons.splice(i, 1); if (+el.dataset.n < 0) t.lessons.push(l); else t.lessons.unshift(l); ui.openUnits[t.id] = true; } } }),
   'lesson-del': el => { const c = courseById(el.dataset.c); const { u, l } = findLesson(c, el.dataset.l); confirmBox('Stunde löschen?', `„${l.title || 'Ohne Titel'}“ wird gelöscht. Die folgenden Stunden rücken nach vorne.`, 'Löschen', () => { commit(() => { u.lessons = u.lessons.filter(x => x !== l); }); closeLayer(); render(); }); },
