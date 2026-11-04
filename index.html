@@ -1012,6 +1012,7 @@ function vUnterricht() {
   <div class="plan">
     <div class="card" style="padding:8px"><div class="field-title" style="padding:6px 8px">Termine</div><div class="dist" id="dist">${dist || '<div class="empty">Keine Termine</div>'}</div></div>
     <div><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>Sequenzen und Stunden</h2><div class="row"><button class="btn sm ghost" data-act="units-toggle" data-c="${c.id}">Alle auf-/zuklappen</button><button class="btn sm primary" data-act="unit-add" data-c="${c.id}">${icon('plus')}Sequenz</button></div></div>
+    ${ui.clip && !ui.moving ? `<div class="movebar" style="background:var(--lila-bg);color:var(--lila-ink)">${icon('copy')}<span style="flex:1">„${esc(ui.clip.lesson.title || 'Ohne Titel')}“ aus ${esc(ui.clip.from)} ist kopiert. Wähle oben das Fach und füge sie über „⋯“ bei einer Stunde oder am Ende einer Sequenz ein.</span><button class="btn sm" data-act="clip-clear">Fertig</button></div>` : ''}
     ${ui.moving ? `<div class="movebar">${icon('grip')}<span style="flex:1">„${esc(findLesson(c, ui.moving.l).l?.title || 'Ohne Titel')}“ verschieben: Tippe auf „Hierher“ an der neuen Stelle.</span><button class="btn sm" data-act="move-cancel">Abbrechen</button></div>` : ''}
     ${units || '<div class="card empty">Noch keine Sequenzen. Lege mit „+ Sequenz“ die erste an.</div>'}</div>
   </div>`;
@@ -1033,7 +1034,7 @@ function unitHtml(c, u, idx) {
     <button class="btn icon ghost" data-act="unit-del" data-c="${c.id}" data-u="${u.id}" aria-label="Sequenz löschen">${icon('trash')}</button>
   </div>
   ${ui.moving ? `<div style="padding:4px 12px">${u.lessons.map((l, i) => slotHtml(u, i, l) + lessonRow(c, u, l, i)).join('')}${slotHtml(u, u.lessons.length, null)}</div>`
-    : open ? u.lessons.map((l, i) => lessonRow(c, u, l, i)).join('') + `<div class="lrow"><span></span><span></span><button class="btn sm ghost" style="justify-self:start" data-act="lesson-add" data-c="${c.id}" data-u="${u.id}">${icon('plus')}Neue Stunde am Ende</button><span></span></div>` : ''}
+    : open ? u.lessons.map((l, i) => lessonRow(c, u, l, i)).join('') + `<div class="lrow"><span></span><span></span><button class="btn sm ghost" style="justify-self:start" data-act="lesson-add" data-c="${c.id}" data-u="${u.id}">${icon('plus')}Neue Stunde am Ende</button>${ui.clip ? `<button class="btn sm" style="justify-self:start" data-act="lesson-paste" data-c="${c.id}" data-u="${u.id}">${icon('copy')}Kopierte Stunde hier einfügen</button>` : ''}<span></span></div>` : ''}
   </div>`;
 }
 function slotHtml(u, i, l) {
@@ -1870,7 +1871,7 @@ const ACT = {
     popMenu(el, `${a('lesson-toggle', 'edit', ui.openLesson === l.id ? 'Bearbeiten schließen' : 'Bearbeiten')}<hr>
       ${a('lesson-insert', 'plus', 'Neue Stunde davor einfügen', 'data-pos="before"')}${a('lesson-insert', 'plus', 'Neue Stunde danach einfügen')}<hr>
       ${a('move-start', 'grip', 'Verschieben an andere Stelle …')}${k > 0 ? a('lesson-move', 'up', 'Eine Stelle nach oben', 'data-n="-1"') : ''}${k < all.length - 1 ? a('lesson-move', 'down', 'Eine Stelle nach unten', 'data-n="1"') : ''}<hr>
-      ${a('lesson-dup', 'copy', 'Duplizieren')}${a('lesson-del', 'trash', 'Löschen', '', 'danger')}`);
+      ${a('lesson-copy', 'copy', 'Kopieren (für ein anderes Fach)')}${ui.clip ? a('lesson-paste', 'plus', `Kopierte Stunde davor einfügen`, 'data-pos="before"') + a('lesson-paste', 'plus', `Kopierte Stunde danach einfügen`) : ''}${a('lesson-dup', 'copy', 'Duplizieren')}${a('lesson-del', 'trash', 'Löschen', '', 'danger')}`);
   },
   'move-start': el => { ui.moving = { c: el.dataset.c, l: el.dataset.l }; ui.openLesson = null; ui.editSnap = null; render(); $('.movebar')?.scrollIntoView({ block: 'start', behavior: 'smooth' }); },
   'move-cancel': () => { ui.moving = null; render(); },
@@ -1881,6 +1882,22 @@ const ACT = {
     commit(() => { src.u.lessons.splice(src.u.lessons.indexOf(src.l), 1); t.lessons.splice(i, 0, src.l); });
     setTimeout(() => $(`#row-${src.l.id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 40); toast('Stunde verschoben. Die Termine haben sich angepasst.');
   },
+  'lesson-copy': el => {
+    const c = courseById(el.dataset.c); const { l } = findLesson(c, el.dataset.l);
+    ui.clip = { lesson: JSON.parse(JSON.stringify(l)), from: cname(c) }; render();
+    toast('Stunde kopiert. Wähle jetzt das Fach, in das sie soll.');
+  },
+  'lesson-paste': el => {
+    if (!ui.clip) return;
+    const c = courseById(el.dataset.c); const n = { ...JSON.parse(JSON.stringify(ui.clip.lesson)), id: uid(), done: false };
+    let u, i;
+    if (el.dataset.u) { u = c.units.find(x => x.id === el.dataset.u); i = u.lessons.length; }
+    else { const f = findLesson(c, el.dataset.l); u = f.u; i = u.lessons.indexOf(f.l) + (el.dataset.pos === 'before' ? 0 : 1); }
+    commit(() => { u.lessons.splice(i, 0, n); ui.openUnits[u.id] = true; });
+    setTimeout(() => $(`#row-${n.id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 40);
+    toast(`In ${cname(c)} eingefügt. Die folgenden Stunden rücken nach.`);
+  },
+  'clip-clear': () => { ui.clip = null; render(); },
   'lesson-dup': el => { const c = courseById(el.dataset.c); const { u, l } = findLesson(c, el.dataset.l); const n = { ...JSON.parse(JSON.stringify(l)), id: uid(), done: false, title: (l.title || 'Ohne Titel') + ' (Kopie)' }; commit(() => u.lessons.splice(u.lessons.indexOf(l) + 1, 0, n)); toast('Stunde dupliziert. Die folgenden Stunden rücken nach.'); },
   'lesson-save': () => { ui.openLesson = null; ui.editSnap = null; render(); toast('Gespeichert'); },
   'lesson-cancel': () => {
