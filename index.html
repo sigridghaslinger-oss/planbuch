@@ -1069,7 +1069,7 @@ function vSchueler() {
   ui.studentCourse = courses.find(c => c.id === ui.studentCourse) ? ui.studentCourse : courses[0]?.id;
   const c = courseById(ui.studentCourse);
   const chips = `<div class="chips">${D.classes.map(k => `<button class="chip c-lila ${k.id === cls.id ? '' : 'off'}" data-act="pick-class" data-id="${k.id}">${esc(k.title)}</button>`).join('')}</div>`;
-  const list = `<div class="card"><div class="head" style="margin-bottom:10px"><h2>Klasse ${esc(cls.title)} <span class="sub">${studs.length} Kinder</span></h2><div class="row"><button class="btn sm" data-act="stud-import" data-id="${cls.id}">Liste einfügen</button><button class="btn sm primary" data-act="stud-add" data-id="${cls.id}">${icon('plus')}Kind</button></div></div>
+  const list = `<div class="card"><div class="head" style="margin-bottom:10px"><h2>Klasse ${esc(cls.title)} <span class="sub">${studs.length} Kinder</span></h2><div class="row"><button class="btn sm" data-act="stud-import" data-id="${cls.id}">Liste einfügen</button>${adoptCourses(cls).length ? `<button class="btn sm" data-act="class-adopt" data-id="${cls.id}">${icon('people')}Aus Fach übernehmen</button>` : ''}<button class="btn sm primary" data-act="stud-add" data-id="${cls.id}">${icon('plus')}Kind</button></div></div>
     ${studs.length ? `<div class="scroll-x"><table class="st"><thead><tr><th>Nr.</th><th>Nachname</th><th>Vorname</th><th></th></tr></thead><tbody>${studs.map(s => `<tr>
       <td><input type="text" style="width:52px" id="sn-${s.id}" value="${esc(s.number || '')}" data-bind="stud" data-f="number" data-id="${cls.id}" data-s="${s.id}" aria-label="Nummer"></td>
       <td><input type="text" id="sl-${s.id}" value="${esc(s.last)}" data-bind="stud" data-f="last" data-id="${cls.id}" data-s="${s.id}" aria-label="Nachname"></td>
@@ -1503,6 +1503,37 @@ function occDrawer(cid, key) {
   };
   drawer(body, 'occ');
 }
+// Fächer dieser Klasse, in denen Kinder sitzen, die (noch) nicht in der Klassenliste stehen
+function adoptCourses(cls) {
+  const own = new Set(cls.students.map(nkey));
+  return D.courses.filter(c => courseHasClass(c, cls.id) && courseStudents(c).some(st => !cls.students.includes(st) && nkey(st).trim() && !own.has(nkey(st))));
+}
+// Kinder eines Fachs in die Klassenliste kopieren. Sie bleiben auch in ihrer Stammklasse.
+// Die Einträge des Fachs werden auf die neuen Listeneinträge umgeschrieben, damit nichts verloren geht.
+function adoptIntoClass(cls, c) {
+  const byKey = new Map(cls.students.filter(st => nkey(st).trim()).map(st => [nkey(st), st]));
+  const map = {}; let added = 0;
+  courseStudents(c).forEach(st => {
+    if (cls.students.includes(st) || !nkey(st).trim()) return;
+    let t = byKey.get(nkey(st));
+    if (!t) { t = { id: uid(), last: st.last, first: st.first, number: '' }; cls.students.push(t); byKey.set(nkey(st), t); added++; }
+    map[st.id] = t.id;
+  });
+  // leere Zeilen ohne Namen entfernen
+  cls.students = cls.students.filter(st => nkey(st).trim());
+  // Einträge, Anwesenheit, Noten und Hausübungen dieses Fachs umschreiben
+  const move = obj => { if (!obj) return; Object.keys(map).forEach(o => { if (obj[o] !== undefined) { obj[map[o]] ??= obj[o]; delete obj[o]; } }); };
+  Object.values(c.entries || {}).forEach(move);
+  Object.values(c.attendance || {}).forEach(move);
+  if (c.grades) Object.values(c.grades.values || {}).forEach(move);
+  (c.homework || []).forEach(hw => move(hw.results));
+  // Das Fach umfasst ab jetzt die ganze Klassenliste
+  const rest = courseGroups(c).filter(g => g.k !== cls.id && !(g.s && map[g.s]));
+  if (c.classId === cls.id && !rest.length) delete c.members; else c.members = [{ k: cls.id }, ...rest];
+  // Nummern vergeben, wenn die Liste noch keine hat
+  if (!cls.students.some(st => String(st.number || '').trim())) studentsOf(cls).forEach((st, i) => { st.number = String(i + 1); });
+  return added;
+}
 function membersSummary(c) {
   const st = courseStudents(c); const main = classById(c.classId);
   const own = st.filter(x => main?.students.some(y => y.id === x.id)).length; const other = st.length - own;
@@ -1656,6 +1687,19 @@ const ACT = {
   },
   'mx-wide': () => { ui.wideList = !ui.wideList; try { localStorage.setItem('planbuch-wide', ui.wideList ? '1' : ''); } catch (e) { } render(); },
   members: el => membersDrawer(el.dataset.c),
+  'class-adopt': el => {
+    const cls = classById(el.dataset.id); const cs = adoptCourses(cls);
+    if (cs.length > 1) return popMenu(el, cs.map(c => `<button data-act="class-adopt-do" data-id="${cls.id}" data-c="${c.id}">${icon('people')}Aus ${esc(cname(c))} (${courseStudents(c).length})</button>`).join(''));
+    ACT['class-adopt-do']({ dataset: { id: cls.id, c: cs[0].id } });
+  },
+  'class-adopt-do': el => {
+    const cls = classById(el.dataset.id); const c = courseById(el.dataset.c);
+    const n = courseStudents(c).filter(st => !cls.students.includes(st) && nkey(st).trim()).length;
+    confirmBox(`${n} Kinder in die Liste ${cls.title} übernehmen?`, `Die Kinder aus ${cname(c)} werden in die Klassenliste ${cls.title} eingetragen und nummeriert. In ihrer Stammklasse bleiben sie trotzdem. Alle Einträge in ${cname(c)} bleiben erhalten.`, 'Übernehmen', () => {
+      let added = 0; commit(() => { added = adoptIntoClass(cls, c); });
+      toast(`${added} Kinder in ${cls.title} übernommen`);
+    });
+  },
   'mem-open': el => { ui.mem.open[el.dataset.k] = !ui.mem.open[el.dataset.k]; refreshDrawer(); },
   'mem-all': el => { const m = ui.mem; if (m.sel.get(el.dataset.k) === 'all') m.sel.delete(el.dataset.k); else m.sel.set(el.dataset.k, 'all'); refreshDrawer(); },
   'mem-one': el => {
