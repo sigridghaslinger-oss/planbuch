@@ -1080,7 +1080,7 @@ function vSchueler() {
     const studs = courseStudents(c);
     const dates = col => [...new Set(Object.values(c.entries[col.id] || {}).flatMap(x => Object.keys(x)))].sort();
     const attDates = Object.keys(c.attendance).sort();
-    ov = `<div class="card"><div class="head" style="margin-bottom:10px"><h2>Übersicht ${esc(cname(c))} <span class="sub">${courseStudents(c).length} im Fach</span></h2><div class="row"><button class="btn sm" data-act="members" data-c="${c.id}">${icon('people')}Schüler im Fach</button><div class="chips">${courses.map(x => `<button class="chip c-${x.color} ${x.id === c.id ? '' : 'off'}" data-act="pick-scourse" data-c="${x.id}"><i></i>${esc(x.subject)}</button>`).join('')}</div><button class="btn sm ghost" data-act="cols" data-c="${c.id}">${icon('edit')}Spalten</button></div></div>
+    ov = `<div class="card"><div class="head" style="margin-bottom:10px"><h2>Übersicht ${esc(cname(c))} <span class="sub">${courseStudents(c).length} im Fach</span></h2><div class="row"><button class="btn sm" data-act="members" data-c="${c.id}">${icon('people')}Schüler im Fach</button>${adoptCourses(cls).includes(c) ? `<button class="btn sm primary" data-act="class-adopt-do" data-id="${cls.id}" data-c="${c.id}">In Liste ${esc(cls.title)} übernehmen</button>` : ''}<div class="chips">${courses.map(x => `<button class="chip c-${x.color} ${x.id === c.id ? '' : 'off'}" data-act="pick-scourse" data-c="${x.id}"><i></i>${esc(x.subject)}</button>`).join('')}</div><button class="btn sm ghost" data-act="cols" data-c="${c.id}">${icon('edit')}Spalten</button></div></div>
     <div class="scroll-x"><table class="st ov"><thead><tr><th>Name</th><th class="grp">Fehlstunden</th>${c.columns.map(col => `<th class="grp">${esc(col.title)}</th>`).join('')}</tr></thead><tbody>
     ${studs.map(s => {
       const abs = attDates.filter(d => c.attendance[d][s.id] === 'a').length, exc = attDates.filter(d => c.attendance[d][s.id] === 'e').length, late = attDates.filter(d => c.attendance[d][s.id] === 'l').length;
@@ -1528,8 +1528,8 @@ function adoptIntoClass(cls, c) {
   if (c.grades) Object.values(c.grades.values || {}).forEach(move);
   (c.homework || []).forEach(hw => move(hw.results));
   // Das Fach umfasst ab jetzt die ganze Klassenliste
-  const rest = courseGroups(c).filter(g => g.k !== cls.id && !(g.s && map[g.s]));
-  if (c.classId === cls.id && !rest.length) delete c.members; else c.members = [{ k: cls.id }, ...rest];
+  // (alle Kinder mit Namen stehen jetzt in der Liste, ganze Klassen und Einzelne von anderswo fallen weg)
+  if (c.classId === cls.id) delete c.members; else c.members = [{ k: cls.id }];
   // Nummern vergeben, wenn die Liste noch keine hat
   if (!cls.students.some(st => String(st.number || '').trim())) studentsOf(cls).forEach((st, i) => { st.number = String(i + 1); });
   return added;
@@ -1543,7 +1543,8 @@ function membersSummary(c) {
 function membersDrawer(cid) {
   const c = courseById(cid);
   const sel = new Map(); courseGroups(c).forEach(g => { if (!g.s) sel.set(g.k, 'all'); else { const cur = sel.get(g.k); if (cur !== 'all') sel.set(g.k, (cur || new Set()).add(g.s)); } });
-  ui.mem = { cid, sel, open: { [c.classId]: true }, q: '' };
+  const main = classById(c.classId);
+  ui.mem = { cid, sel, open: { [c.classId]: true }, q: '', adopt: !!main && !main.students.some(st => nkey(st).trim()) };
   sel.forEach((v, k) => { if (v !== 'all') ui.mem.open[k] = true; });
   drawer(membersBody, 'members');
 }
@@ -1569,7 +1570,9 @@ function membersBody() {
         ${open ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:2px 10px;margin-top:8px">${studs.map(s => `<label class="row" style="gap:8px;padding:5px 2px;cursor:pointer"><input type="checkbox" data-act="mem-one" data-k="${k.id}" data-s="${s.id}" ${isOn(k, s.id) ? 'checked' : ''}><span>${esc(s.last)}${s.first ? ', ' + esc(s.first) : ''}</span></label>`).join('')}</div>` : ''}
       </div>`;
     }).join('')}</div>
-    <div class="row" style="justify-content:flex-end;gap:6px;position:sticky;bottom:0;background:var(--surface);padding-top:10px;border-top:1px solid var(--line)"><button class="btn ghost" data-act="close">Abbrechen</button><button class="btn primary" data-act="mem-save">${icon('check')}Übernehmen</button></div>`;
+    <div style="position:sticky;bottom:0;background:var(--surface);padding-top:10px;border-top:1px solid var(--line);display:grid;gap:10px">
+      ${classById(c.classId) ? `<label class="row" style="gap:8px;cursor:pointer;align-items:flex-start"><input type="checkbox" data-act="mem-adopt" ${m.adopt ? 'checked' : ''} style="margin-top:3px"><span>Ausgewählte Kinder auch <b>in die Klassenliste ${esc(classById(c.classId).title)}</b> eintragen und nummerieren</span></label>` : ''}
+      <div class="row" style="justify-content:flex-end;gap:6px"><button class="btn ghost" data-act="close">Abbrechen</button><button class="btn primary" data-act="mem-save">${icon('check')}Speichern</button></div></div>`;
 }
 document.addEventListener('input', ev => { if (ev.target.matches?.('[data-memq]') && ui.mem) { ui.mem.q = ev.target.value; const pos = ev.target.selectionStart; refreshDrawer(); const i = $('#mem-q'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } } });
 function eventDrawer(id, date, type, st, et) {
@@ -1709,11 +1712,13 @@ const ACT = {
     if (!v.size) m.sel.delete(k.id); else if (v.size === k.students.length) m.sel.set(k.id, 'all'); else m.sel.set(k.id, v);
     refreshDrawer();
   },
+  'mem-adopt': el => { ui.mem.adopt = el.checked; },
   'mem-save': () => {
     const m = ui.mem; const c = courseById(m.cid); const groups = [];
     m.sel.forEach((v, k) => { if (v === 'all') groups.push({ k }); else v.forEach(s => groups.push({ k, s })); });
-    commit(() => { if (groups.length === 1 && !groups[0].s && groups[0].k === c.classId) delete c.members; else c.members = groups; });
-    closeLayer(); render(); toast(`${courseStudents(c).length} Schülerinnen und Schüler in ${cname(c)}`);
+    const main = classById(c.classId); let added = 0;
+    commit(() => { if (groups.length === 1 && !groups[0].s && groups[0].k === c.classId) delete c.members; else c.members = groups; if (m.adopt && main) added = adoptIntoClass(main, c); });
+    closeLayer(); render(); toast(`${courseStudents(c).length} Schülerinnen und Schüler in ${cname(c)}${added ? ` · ${added} neu in der Liste ${main.title}` : ''}`);
   },
   lmenu: el => {
     const c = courseById(el.dataset.c); const { u, l } = findLesson(c, el.dataset.l); const all = c.units.flatMap(x => x.lessons); const k = all.indexOf(l);
