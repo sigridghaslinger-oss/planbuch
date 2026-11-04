@@ -123,6 +123,16 @@ label.f > input,label.f > select,label.f > textarea{color:var(--ink);font-weight
 .lessonhead .time{font-family:var(--font-display);font-size:1.05rem}
 .bigchip{font-family:var(--font-display);font-weight:600;font-size:1.05rem;padding:6px 14px;border-radius:12px;background:var(--c-bg);color:var(--c-ink)}
 .scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.today.wide{grid-template-columns:1fr}
+.mx-wrap{position:relative}
+.mx-wrap::after{content:'';position:absolute;top:0;right:0;bottom:0;width:28px;pointer-events:none;background:linear-gradient(to right,transparent,var(--surface));opacity:0;transition:opacity .2s}
+.mx-wrap.more::after{opacity:1}
+#mx{scrollbar-width:thin;padding-bottom:4px}
+#mx::-webkit-scrollbar{height:8px}#mx::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:8px}
+#mx table.st .nm{position:sticky;left:0;z-index:2;background:var(--surface);box-shadow:1px 0 0 var(--line)}
+#mx table.st thead .nm{z-index:3}
+#mx.scrolled table.st .nm{box-shadow:4px 0 8px -4px rgba(47,49,73,.25)}
+#mx .nm .n{display:inline-block;min-width:20px;color:var(--faint);font-variant-numeric:tabular-nums;font-size:.8rem}
 table.st{border-collapse:separate;border-spacing:0;width:100%;font-size:.9rem}
 table.st th,table.st td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;white-space:nowrap}
 table.st thead th{font-size:.75rem;color:var(--muted);font-weight:700;position:sticky;top:0;background:var(--surface);z-index:1;vertical-align:bottom}
@@ -729,12 +739,22 @@ function pageHead(title, sub, right = '') {
 function render() {
   renderSide();
   const m = $('#main'); const st = m.scrollTop;
+  const keepX = Object.fromEntries($$('[data-keepx]').map(el => [el.id, el.scrollLeft]));
   const views = { heute: vHeute, kalender: vKalender, unterricht: vUnterricht, schueler: vSchueler, noten: vNoten, kinder: vKinder, notizen: vNotizen, erinnerungen: vErinnerungen, drucken: vDrucken, einstellungen: vEinstellungen };
   m.innerHTML = `<div class="page">${(views[ui.view] || vHeute)()}</div>`;
   m.scrollTop = st;
+  $$('[data-keepx]').forEach(el => { if (keepX[el.id]) el.scrollLeft = keepX[el.id]; });
   afterRender();
 }
+function mxHint() {
+  const x = $('#mx'); if (!x) return;
+  x.classList.toggle('scrolled', x.scrollLeft > 2);
+  x.parentElement.classList.toggle('more', x.scrollLeft + x.clientWidth < x.scrollWidth - 2);
+}
+document.addEventListener('scroll', ev => { if (ev.target.id === 'mx') mxHint(); }, true);
+addEventListener('resize', mxHint);
 function afterRender() {
+  mxHint();
   $$('[data-rte]').forEach(el => { el.innerHTML = sanitize(el.dataset.html || ''); });
 }
 
@@ -760,22 +780,22 @@ function vHeute() {
   const studs = studentsOf(cls);
   const att = c.attendance[o.date] || {};
   const cols = c.columns;
-  const table = studs.length ? `<div class="scroll-x"><table class="st"><thead><tr><th></th><th>Name</th><th><span class="vth">Anwesenheit</span></th>${cols.map(col => `<th class="cell"><span class="vth">${esc(col.title)}</span></th>`).join('')}</tr></thead><tbody>
+  const table = studs.length ? `<div class="mx-wrap"><div class="scroll-x" id="mx" data-keepx><table class="st"><thead><tr><th class="nm">Name</th><th><span class="vth">Anwesenheit</span></th>${cols.map(col => `<th class="cell"><span class="vth">${esc(col.title)}</span></th>`).join('')}</tr></thead><tbody>
     ${studs.map((s, i) => {
       const a = att[s.id];
       const aLab = { a: ['fehlt', 'bad'], e: ['entsch.', 'info'], l: ['spät', 'mid'] }[a];
-      return `<tr><td class="n">${s.number || i + 1}</td><td>${esc(s.last)}${s.first ? ', ' + esc(s.first) : ''}</td>
+      return `<tr><td class="nm"><span class="n">${s.number || i + 1}</span> ${esc(s.last)}${s.first ? ', ' + esc(s.first) : ''}</td>
       <td class="cell"><button class="mark ${aLab ? 'set m-' + aLab[1] : ''}" style="width:58px;font-size:.75rem" data-act="att" data-c="${c.id}" data-s="${s.id}" data-d="${o.date}">${aLab ? aLab[0] : ''}</button></td>
       ${cols.map(col => cellHtml(c, col, s, o.date)).join('')}</tr>`;
-    }).join('')}</tbody></table></div>` : `<div class="empty">Für ${esc(cls?.title || 'diese Klasse')} sind noch keine Schülerinnen und Schüler eingetragen.<br><button class="btn sm" style="margin-top:10px" data-act="go" data-v="schueler">Schülerliste anlegen</button></div>`;
+    }).join('')}</tbody></table></div></div>` : `<div class="empty">Für ${esc(cls?.title || 'diese Klasse')} sind noch keine Schülerinnen und Schüler eingetragen.<br><button class="btn sm" style="margin-top:10px" data-act="go" data-v="schueler">Schülerliste anlegen</button></div>`;
   return pageHead('Heute', longDate(todayIso()), right) + `
   <div class="card c-${c.color}"><div class="lessonhead">
     <span class="bigchip">${esc(cname(c))}</span>
     <span class="time">${o.date === todayIso() ? 'Heute' : longDate(o.date)} · ${p ? p + '. Stunde · ' : ''}${o.start}–${o.end}${o.room ? ' · ' + esc(o.room) : ''}</span>
     ${isNow ? '<span class="pill" style="background:var(--mint-bg);color:var(--mint-ink)">läuft gerade</span>' : ''}
   </div></div>
-  <div class="today">
-    <div class="card"><div class="head" style="margin-bottom:8px"><h2>${esc(cls?.title || '')} – Mitschrift</h2><button class="btn sm ghost" data-act="cols" data-c="${c.id}">${icon('edit')}Spalten</button></div>${table}</div>
+  <div class="today ${ui.wideList ? 'wide' : ''}">
+    <div class="card"><div class="head" style="margin-bottom:8px"><h2>${esc(cls?.title || '')} – Mitschrift</h2><div class="row" style="gap:4px">${studs.length ? `<button class="btn icon" data-act="mx-scroll" data-n="-1" aria-label="Spalten nach links">${icon('left')}</button><button class="btn icon" data-act="mx-scroll" data-n="1" aria-label="Spalten nach rechts">${icon('right')}</button>` : ''}<button class="btn sm ghost" data-act="mx-wide">${ui.wideList ? 'Schmale Liste' : 'Breite Liste'}</button><button class="btn sm ghost" data-act="cols" data-c="${c.id}">${icon('edit')}Spalten</button></div></div>${table}</div>
     <div style="display:grid;gap:18px">
       <div class="card lessonbox">
         ${l ? (ui.inlineEdit === l.id ? `<div class="row" style="justify-content:space-between"><div class="unitline">${esc(u.title)}</div><button class="btn sm primary" data-act="inline-done">Fertig</button></div>${lessonEditor(c, u, l)}`
@@ -1577,6 +1597,13 @@ const ACT = {
   'unit-move': el => commit(() => { const c = courseById(el.dataset.c); moveIn(c.units, c.units.find(u => u.id === el.dataset.u), +el.dataset.n); }),
   'unit-del': el => { const c = courseById(el.dataset.c); const u = c.units.find(x => x.id === el.dataset.u); confirmBox('Sequenz löschen?', `„${u.title}“ und ihre ${u.lessons.length} Stunden werden gelöscht. Mit „Rückgängig“ holst du sie zurück.`, 'Löschen', () => commit(() => { c.units = c.units.filter(x => x !== u); })); },
   'lesson-add': el => { const c = courseById(el.dataset.c); const u = c.units.find(x => x.id === el.dataset.u); const l = newLesson(); commit(() => { u.lessons.push(l); openLessonEditor(c, l, true); }); focusLesson(l.id); },
+  'mx-scroll': el => {
+    const x = $('#mx'); if (!x) return;
+    const from = x.scrollLeft, to = Math.max(0, Math.min(x.scrollWidth - x.clientWidth, from + +el.dataset.n * Math.max(160, x.clientWidth * 0.6)));
+    x.scrollTo({ left: to, behavior: 'smooth' });
+    setTimeout(() => { if (Math.abs(x.scrollLeft - from) < 2) x.scrollLeft = to; }, 350);   // falls weiches Scrollen nicht greift
+  },
+  'mx-wide': () => { ui.wideList = !ui.wideList; try { localStorage.setItem('planbuch-wide', ui.wideList ? '1' : ''); } catch (e) { } render(); },
   lmenu: el => {
     const c = courseById(el.dataset.c); const { u, l } = findLesson(c, el.dataset.l); const all = c.units.flatMap(x => x.lessons); const k = all.indexOf(l);
     const a = (act, ic, t, extra = '', cls = '') => `<button class="${cls}" data-act="${act}" data-c="${c.id}" data-l="${l.id}" ${extra}>${icon(ic)}${t}</button>`;
@@ -1796,6 +1823,7 @@ function demoData() {
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { });
   const h = location.hash.slice(1); if (VIEWS.some(v => v[0] === h)) ui.view = h;
   lockAfter = (await idb.get('lockAfter').catch(() => null)) ?? 15;
+  try { ui.wideList = !!localStorage.getItem('planbuch-wide'); } catch (e) { }
   const loc = await readLocal().catch(() => null);
   if (!loc) welcome();
   else if (loc.box) showUnlock(loc.box);
