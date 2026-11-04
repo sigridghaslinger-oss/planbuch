@@ -292,6 +292,16 @@ table.detail .dt{display:inline-block;margin:1px 6px 1px 0;white-space:nowrap}
 .wp .lesscell{border-left:3pt solid var(--c-line)!important}
 .vlabel{writing-mode:vertical-rl;transform:rotate(180deg);height:32mm;white-space:nowrap;font-size:8pt}
 
+.cl-title{font-family:var(--font-display);font-size:1.25rem;font-weight:500;border:1px solid transparent;background:transparent;padding:4px 6px;border-radius:8px;width:100%}
+.cl-title:hover,.cl-title:focus{border-color:var(--line);background:var(--surface)}
+table.cl td{vertical-align:middle}
+table.cl tr.na td{opacity:.45}
+table.cl tr.done td.nm{color:var(--muted)}
+.cl-mark{width:46px;height:38px;border-radius:10px;border:1.5px dashed var(--line-strong);background:var(--surface);font-size:1.1rem;font-weight:700;cursor:pointer;color:var(--mint-ink)}
+.cl-mark.on{border-style:solid;border-color:var(--mint);background:var(--mint-bg)}
+.cl-money{width:82px;text-align:right}
+.st-pill{display:inline-block;border-radius:999px;padding:1px 9px;font-size:.75rem;font-weight:700}
+.st-open{background:var(--koralle-bg);color:var(--koralle-ink)}.st-part{background:var(--sonne-bg);color:var(--sonne-ink)}.st-done{background:var(--mint-bg);color:var(--mint-ink)}.st-na{background:var(--soft);color:var(--muted)}
 #print-area{display:none}
 @media print{
   body{background:#fff}
@@ -403,6 +413,7 @@ const I = {
   open: '<path d="M7 18h10a4 4 0 0 0 .6-8A6 6 0 0 0 6.2 9 4.5 4.5 0 0 0 7 18z"/><path d="M12 16v-5M9.5 13.5 12 11l2.5 2.5"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
   grade: '<path d="M5 4h14v16H5z"/><path d="M8.5 9h7M8.5 13h7M8.5 17h4"/><circle cx="16" cy="17" r="0"/>',
+  home: '<path d="M4 11 12 4l8 7"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/>',
   child: '<circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.8 3.6-6 7-6s6.2 2.2 7 6"/>',
 };
 const icon = (n, cls = '') => `<svg class="${cls}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[n]}</svg>`;
@@ -587,7 +598,7 @@ function undo() {
 const isDirty = () => !meta.fileSavedAt || (meta.changedAt && meta.changedAt > meta.fileSavedAt);
 
 function normalize(d) {
-  d.classes ||= []; d.courses ||= []; d.childNotes ||= {}; d.events ||= []; d.weekNotes ||= {}; d.notes ||= []; d.reminders ||= [];
+  d.classes ||= []; d.courses ||= []; d.checklists ||= []; d.childNotes ||= {}; d.events ||= []; d.weekNotes ||= {}; d.notes ||= []; d.reminders ||= [];
   d.periods ||= []; d.year ||= { title: 'Schuljahr', start: todayIso(), end: addDays(todayIso(), 300), days: [1, 2, 3, 4, 5] };
   d.courses.forEach(c => { c.units ||= []; c.slots ||= []; c.extra ||= []; c.homework ||= []; c.cancelled ||= []; c.columns ||= []; c.entries ||= {}; c.lessonNotes ||= {}; c.attendance ||= {}; c.color ||= 'tuerkis'; });
   d.classes.forEach(k => { k.students ||= []; });
@@ -724,7 +735,7 @@ const eventsOn = d => D.events.filter(e => e.start <= d && (e.end || e.start) >=
 
 /* ---------- Navigation & Rahmen ---------- */
 const VIEWS = [
-  ['heute', 'Heute', 'today'], ['kalender', 'Kalender', 'cal'], ['unterricht', 'Unterricht', 'plan'], ['schueler', 'Schüler', 'people'], ['noten', 'Noten', 'grade'], ['kinder', 'Leistungsprofil', 'child'],
+  ['heute', 'Heute', 'today'], ['kalender', 'Kalender', 'cal'], ['unterricht', 'Unterricht', 'plan'], ['schueler', 'Schüler', 'people'], ['klasse', 'Meine Klasse', 'home'], ['noten', 'Noten', 'grade'], ['kinder', 'Leistungsprofil', 'child'],
   ['notizen', 'Notizen', 'note'], ['erinnerungen', 'Erinnerungen', 'bell'], ['drucken', 'Drucken', 'print'], ['einstellungen', 'Einstellungen', 'gear'],
 ];
 function renderSide() {
@@ -751,7 +762,7 @@ function render() {
   renderSide();
   const m = $('#main'); const st = m.scrollTop;
   const keepX = Object.fromEntries($$('[data-keepx]').map(el => [el.id, el.scrollLeft]));
-  const views = { heute: vHeute, kalender: vKalender, unterricht: vUnterricht, schueler: vSchueler, noten: vNoten, kinder: vKinder, notizen: vNotizen, erinnerungen: vErinnerungen, drucken: vDrucken, einstellungen: vEinstellungen };
+  const views = { klasse: vKlasse, heute: vHeute, kalender: vKalender, unterricht: vUnterricht, schueler: vSchueler, noten: vNoten, kinder: vKinder, notizen: vNotizen, erinnerungen: vErinnerungen, drucken: vDrucken, einstellungen: vEinstellungen };
   m.innerHTML = `<div class="page">${(views[ui.view] || vHeute)()}</div>`;
   m.scrollTop = st;
   $$('[data-keepx]').forEach(el => { if (keepX[el.id]) el.scrollLeft = keepX[el.id]; });
@@ -1242,6 +1253,116 @@ function printChildren(list) {
   return list.map((ch, i) => `<div class="sheet portrait ${i < list.length - 1 ? 'page-break' : ''}">${childProfileHtml(ch, true)}</div>`).join('');
 }
 
+/* ---------- Ansicht: Meine Klasse (Klassenvorstand) ----------
+   Checklisten je Kind: abhaken (Material), Geld einsammeln oder Unterschriften. */
+const CL_TYPES = { check: 'Abhaken', money: 'Geld einsammeln', sign: 'Unterschrift' };
+const CL_NEW = { check: 'Neue Checkliste', money: 'Geld für …', sign: 'Unterschrift für …' };
+const euro = v => (Math.round((+v || 0) * 100) / 100).toLocaleString('de-AT', { style: 'currency', currency: 'EUR' });
+const euroIn = v => v == null || v === '' ? '' : (Math.round(+v * 100) / 100).toFixed(2).replace('.', ',');
+const parseEuro = v => { const n = parseFloat(String(v).replace(/[^\d,.-]/g, '').replace(',', '.')); return isNaN(n) ? null : n; };
+const myClass = () => classById(D.myClass) || D.classes.find(k => k.title === '4C') || D.classes.find(k => k.students.length);
+const clById = id => D.checklists.find(x => x.id === id);
+function clState(cl, sid) {
+  const it = cl.items[sid] || {};
+  if (it.na) return 'na';
+  if (cl.type === 'money') { const p = it.paid || 0; return p <= 0 ? 'open' : cl.amount && p < cl.amount - 0.001 ? 'part' : 'done'; }
+  return it.done ? 'done' : 'open';
+}
+function clStats(cl, studs) {
+  const rel = studs.filter(st => clState(cl, st.id) !== 'na');
+  const done = rel.filter(st => clState(cl, st.id) === 'done').length;
+  const paid = rel.reduce((n, st) => n + (cl.items[st.id]?.paid || 0), 0);
+  return { done, total: rel.length, paid, expected: (cl.amount || 0) * rel.length };
+}
+const ST_LABEL = { open: 'offen', part: 'teilweise', done: 'erledigt', na: 'entfällt' };
+function clSmall(cl, sid) {
+  const x = clState(cl, sid); const it = cl.items[sid] || {}; const d = it.date ? ' · ' + dm(it.date) : '';
+  if (x === 'na') return '<span class="sub">betrifft dieses Kind nicht</span>';
+  if (x === 'open') return '<span style="color:var(--koralle-ink)">offen</span>';
+  if (x === 'part') return `<span style="color:var(--sonne-ink)">teilweise, fehlen ${euro((cl.amount || 0) - (it.paid || 0))}${d}</span>`;
+  return `<span style="color:var(--mint-ink)">${cl.type === 'money' ? 'bezahlt' : cl.type === 'sign' ? 'unterschrieben' : 'erledigt'}${d}</span>`;
+}
+const stPill = (cl, st) => `<span class="st-pill st-${st}">${cl.type === 'money' && st === 'done' ? 'bezahlt' : cl.type === 'sign' && st === 'done' ? 'unterschrieben' : ST_LABEL[st]}</span>`;
+function clStatsHtml(cl, studs) {
+  const x = clStats(cl, studs); const pct = x.total ? Math.round(x.done / x.total * 100) : 0;
+  return `<div class="row" style="justify-content:space-between;gap:10px"><b>${x.done} von ${x.total} ${cl.type === 'money' ? 'bezahlt' : cl.type === 'sign' ? 'unterschrieben' : 'erledigt'}</b>
+    ${cl.type === 'money' ? `<span>Eingesammelt <b>${euro(x.paid)}</b>${cl.amount ? ` von ${euro(x.expected)} · offen <b>${euro(Math.max(0, x.expected - x.paid))}</b>` : ''}</span>` : ''}</div>
+    <div class="bar" style="margin-top:6px"><i style="width:${pct}%"></i></div>`;
+}
+function vKlasse() {
+  const cls = myClass();
+  if (!cls) return pageHead('Meine Klasse') + `<div class="card empty">Lege zuerst unter „Einstellungen → Klassen“ eine Klasse an.</div>`;
+  const studs = studentsOf(cls).filter(st => nkey(st).trim());
+  const lists = D.checklists.filter(x => x.classId === cls.id).sort((a, b) => (b.created || '').localeCompare(a.created || ''));
+  const active = lists.filter(x => !x.archived), arch = lists.filter(x => x.archived);
+  const tab = ui.klTab || 'listen';
+  const right = `<div class="seg">${[['listen', 'Checklisten'], ['liste', 'Schülerliste']].map(([k, t]) => `<button class="${tab === k ? 'on' : ''}" data-act="kl-tab" data-k="${k}">${t}</button>`).join('')}</div>
+    <select data-bind="myClass" aria-label="Meine Klasse" style="width:auto">${D.classes.map(k => `<option value="${k.id}" ${k.id === cls.id ? 'selected' : ''}>${esc(k.title)}</option>`).join('')}</select>`;
+  const head = pageHead('Meine Klasse', `${esc(cls.title)} · ${studs.length} Kinder`, right);
+  if (tab === 'liste') {
+    const cols = active;
+    return head + `<div class="card"><div class="head" style="margin-bottom:10px"><h2>Schülerliste ${esc(cls.title)}</h2><div class="row"><button class="btn sm ghost" data-act="kl-edit" data-id="${cls.id}">${icon('edit')}Liste bearbeiten</button><button class="btn sm" data-act="kl-print">${icon('print')}Drucken</button></div></div>
+      ${studs.length ? `<div class="scroll-x"><table class="st"><thead><tr><th>Nr.</th><th>Name</th>${cols.map(cl => `<th class="cell" style="text-align:center"><span class="vth" title="${esc(cl.title)}">${esc(cl.title)}</span></th>`).join('')}<th>Offen</th></tr></thead><tbody>
+      ${studs.map((st, i) => { const open = cols.filter(cl => ['open', 'part'].includes(clState(cl, st.id))); return `<tr><td class="n">${esc(st.number || String(i + 1))}</td><td>${esc(st.last)}${st.first ? ', ' + esc(st.first) : ''}</td>${cols.map(cl => { const x = clState(cl, st.id); const it = cl.items[st.id] || {}; return `<td class="cell" style="text-align:center;cursor:pointer" data-act="cl-pick" data-id="${cl.id}" title="${esc(cl.title)}">${x === 'na' ? '<span class="sub">–</span>' : cl.type === 'money' ? (it.paid ? `<span class="st-pill st-${x}">${euroIn(it.paid)}</span>` : '<span class="st-pill st-open">✗</span>') : x === 'done' ? '<span class="st-pill st-done">✓</span>' : '<span class="st-pill st-open">✗</span>'}</td>`; }).join('')}<td>${open.length ? `<b style="color:var(--koralle-ink)">${open.length}</b>` : '<span class="sub">–</span>'}</td></tr>`; }).join('')}</tbody></table></div>`
+      : `<div class="empty">In ${esc(cls.title)} sind noch keine Kinder eingetragen.<br><button class="btn sm" style="margin-top:10px" data-act="kl-edit" data-id="${cls.id}">Schülerliste anlegen</button></div>`}
+      ${cols.length ? '<div class="sub" style="margin-top:8px">Tippe auf ein Feld, um die Checkliste zu öffnen.</div>' : ''}</div>`;
+  }
+  const cl = clById(ui.clId) && clById(ui.clId).classId === cls.id ? clById(ui.clId) : active[0];
+  const row = x => { const st = clStats(x, studs); return `<div class="d ${cl && x.id === cl.id ? 'cur' : ''}" style="grid-template-columns:1fr auto" data-act="cl-pick" data-id="${x.id}"><div class="t"><b style="font-weight:600">${esc(x.title || 'Ohne Titel')}</b><br><span class="sub">${CL_TYPES[x.type]}${x.due ? ' · bis ' + dm(x.due) : ''}</span></div><span class="pill" style="${st.done === st.total && st.total ? 'background:var(--mint-bg);color:var(--mint-ink)' : ''}">${st.done}/${st.total}</span></div>`; };
+  const left = `<div class="card" style="padding:10px;display:grid;gap:10px;align-content:start">
+    <div class="field-title">Neue Checkliste</div>
+    <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm" data-act="cl-new" data-t="check">${icon('plus')}Abhaken</button><button class="btn sm" data-act="cl-new" data-t="money">${icon('plus')}Geld</button><button class="btn sm" data-act="cl-new" data-t="sign">${icon('plus')}Unterschrift</button></div>
+    <div class="dist" style="max-height:none;padding:0">${active.map(row).join('') || '<div class="empty" style="padding:14px">Noch keine Checklisten. Lege oben eine an, z. B. „Zeichenblock“, „Wandertag 12 €“ oder „Elternbrief Schikurs“.</div>'}</div>
+    ${arch.length ? `<button class="btn sm ghost" style="justify-self:start" data-act="cl-showarch">${icon(ui.clShowArch ? 'down' : 'right')}Archiv (${arch.length})</button>${ui.clShowArch ? `<div class="dist" style="max-height:none;padding:0;opacity:.8">${arch.map(row).join('')}</div>` : ''}` : ''}
+  </div>`;
+  return head + `<div class="plan">${left}<div>${cl ? clDetail(cl, studs) : `<div class="card empty">Wähle links eine Checkliste oder lege eine neue an.</div>`}</div></div>`;
+}
+function clDetail(cl, studs) {
+  const only = ui.clOpenOnly;
+  const shown = studs.filter(st => !only || ['open', 'part'].includes(clState(cl, st.id)));
+  const rowHtml = (st, i) => {
+    const it = cl.items[st.id] || {}; const x = clState(cl, st.id);
+    const ctl = cl.type === 'money'
+      ? `<span class="row" style="gap:6px;flex-wrap:nowrap"><input type="text" inputmode="decimal" class="cl-money" id="clp-${cl.id}-${st.id}" value="${euroIn(it.paid || null)}" placeholder="0,00" data-bind="clPaid" data-id="${cl.id}" data-s="${st.id}" aria-label="Betrag ${esc(st.last)}" ${it.na ? 'disabled' : ''}> €${cl.amount && !it.na ? `<button class="btn sm ghost" data-act="cl-full" data-id="${cl.id}" data-s="${st.id}">${x === 'done' ? 'löschen' : 'voll'}</button>` : ''}</span>`
+      : `<button class="cl-mark ${it.done ? 'on' : ''}" data-act="cl-tog" data-id="${cl.id}" data-s="${st.id}" aria-label="${esc(st.last)} abhaken" ${it.na ? 'disabled' : ''}>${it.done ? '✓' : ''}</button>`;
+    return `<tr class="${x}"><td class="n">${esc(st.number || String(studs.indexOf(st) + 1))}</td><td class="nm" style="white-space:normal">${esc(st.last)}${st.first ? ', ' + esc(st.first) : ''}<br><small id="clst-${cl.id}-${st.id}" style="font-size:.75rem">${clSmall(cl, st.id)}</small></td><td style="width:1%">${ctl}</td><td style="width:1%;text-align:right"><button class="btn sm ghost" data-act="cl-na" data-id="${cl.id}" data-s="${st.id}" title="${it.na ? 'Betrifft dieses Kind doch' : 'Betrifft dieses Kind nicht'}" aria-label="${it.na ? 'betrifft doch' : 'entfällt'}">${it.na ? '↺' : '–'}</button></td></tr>`;
+  };
+  return `<div class="card" style="display:grid;gap:12px">
+    <div class="row" style="justify-content:space-between;gap:8px"><span class="pill">${CL_TYPES[cl.type]}</span>
+      <div class="row" style="gap:4px"><button class="btn sm" data-act="cl-print" data-id="${cl.id}">${icon('print')}Drucken</button><button class="btn sm ghost" data-act="cl-arch" data-id="${cl.id}">${cl.archived ? 'Aus Archiv holen' : 'Archivieren'}</button><button class="btn icon ghost" data-act="cl-del" data-id="${cl.id}" aria-label="Checkliste löschen">${icon('trash')}</button></div></div>
+    <input type="text" class="cl-title" id="clt-${cl.id}" value="${esc(cl.title)}" data-bind="clTitle" data-id="${cl.id}" placeholder="Titel, z. B. Wandertag" aria-label="Titel">
+    <div class="row" style="gap:12px;flex-wrap:wrap">
+      <label class="f" style="flex:1;min-width:150px">Fällig bis<input type="date" id="cld-${cl.id}" value="${cl.due || ''}" data-bind="clDue" data-id="${cl.id}"></label>
+      ${cl.type === 'money' ? `<label class="f" style="flex:1;min-width:150px">Betrag pro Kind (€)<input type="text" inputmode="decimal" id="cla-${cl.id}" value="${euroIn(cl.amount)}" placeholder="z. B. 12,00" data-bind="clAmount" data-id="${cl.id}"></label>` : ''}
+    </div>
+    <textarea id="cln-${cl.id}" data-bind="clNote" data-id="${cl.id}" placeholder="Notiz, z. B. wofür, wer schon Bescheid weiß …" style="min-height:48px">${esc(cl.note || '')}</textarea>
+    <div id="cl-stats-${cl.id}" style="background:var(--soft);border-radius:10px;padding:10px 12px">${clStatsHtml(cl, studs)}</div>
+    <div class="row" style="justify-content:space-between;gap:8px"><label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" data-act="cl-openonly" ${only ? 'checked' : ''}> nur offene zeigen</label><span class="sub" style="font-size:.78rem">„–“ = betrifft dieses Kind nicht</span>
+      ${cl.type !== 'money' || cl.amount ? `<button class="btn sm" data-act="cl-allok" data-id="${cl.id}">${icon('check')}${cl.type === 'money' ? 'Alle übrigen voll bezahlt' : 'Alle übrigen abhaken'}</button>` : ''}</div>
+    ${studs.length ? `<div class="scroll-x"><table class="st cl"><tbody>${shown.map(rowHtml).join('') || '<tr><td class="empty">Alles erledigt 🎉</td></tr>'}</tbody></table></div>` : '<div class="empty">In dieser Klasse sind noch keine Kinder eingetragen.</div>'}
+  </div>`;
+}
+// Summe und Status nach Geldeingabe aktualisieren, ohne die Seite neu zu zeichnen (Fokus bleibt im Feld)
+function clRefresh(cl, sid) {
+  const studs = studentsOf(classById(cl.classId)).filter(st => nkey(st).trim());
+  const box = $(`#cl-stats-${cl.id}`); if (box) box.innerHTML = clStatsHtml(cl, studs);
+  const small = sid && $(`#clst-${cl.id}-${sid}`); if (small) small.innerHTML = clSmall(cl, sid);
+}
+function printChecklist(cl) {
+  const cls = classById(cl.classId); const studs = studentsOf(cls).filter(st => nkey(st).trim()); const x = clStats(cl, studs);
+  const cell = st => { const it = cl.items[st.id] || {}; const s = clState(cl, st.id); if (s === 'na') return '–'; if (cl.type === 'money') return it.paid ? euro(it.paid) : ''; return it.done ? '✓' : ''; };
+  return `<div class="sheet portrait"><div class="ph"><div><h2>${esc(cl.title || 'Checkliste')}</h2><div style="font-size:10pt;color:#555">Klasse ${esc(cls?.title || '')} · ${CL_TYPES[cl.type]}${cl.amount ? ' · ' + euro(cl.amount) + ' pro Kind' : ''}${cl.due ? ' · fällig bis ' + dmy(cl.due) : ''}</div></div><div class="meta">${x.done} von ${x.total} erledigt${cl.type === 'money' ? `<br>eingesammelt ${euro(x.paid)}${cl.amount ? ' von ' + euro(x.expected) : ''}` : ''}<br>Stand ${dmy(todayIso())}</div></div>
+    ${cl.note ? `<p style="font-size:9.5pt;margin:0 0 4mm">${esc(cl.note)}</p>` : ''}
+    <table class="pt lines"><thead><tr><th class="nr">Nr.</th><th style="width:60mm">Name</th><th style="width:28mm;text-align:center">${cl.type === 'money' ? 'Betrag' : cl.type === 'sign' ? 'Unterschrift' : 'Erledigt'}</th><th style="width:20mm">Datum</th><th>Notiz</th></tr></thead>
+    <tbody>${studs.map((st, i) => { const it = cl.items[st.id] || {}; return `<tr><td class="nr">${esc(st.number || String(i + 1))}</td><td>${esc(st.last)}${st.first ? ', ' + esc(st.first) : ''}</td><td style="text-align:center">${cell(st)}</td><td>${it.date && clState(cl, st.id) !== 'open' && !it.na ? dm(it.date) : ''}</td><td></td></tr>`; }).join('')}</tbody></table></div>`;
+}
+function printClassList(cls) {
+  const studs = studentsOf(cls).filter(st => nkey(st).trim()); const cols = D.checklists.filter(x => x.classId === cls.id && !x.archived);
+  return `<div class="sheet portrait"><div class="ph"><div><h2>Klasse ${esc(cls.title)}</h2><div style="font-size:10pt;color:#555">${studs.length} Kinder</div></div><div class="meta">Stand ${dmy(todayIso())}</div></div>
+    <table class="pt lines"><thead><tr><th class="nr">Nr.</th><th style="width:60mm">Name</th>${cols.map(cl => `<th style="text-align:center"><span class="vlabel">${esc(cl.title)}</span></th>`).join('')}</tr></thead>
+    <tbody>${studs.map((st, i) => `<tr><td class="nr">${esc(st.number || String(i + 1))}</td><td>${esc(st.last)}${st.first ? ', ' + esc(st.first) : ''}</td>${cols.map(cl => { const it = cl.items[st.id] || {}; const s = clState(cl, st.id); return `<td style="text-align:center">${s === 'na' ? '–' : cl.type === 'money' ? (it.paid ? euroIn(it.paid) : '') : it.done ? '✓' : ''}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+
 /* ---------- Ansicht: Notizen ---------- */
 function vNotizen() {
   const notes = [...D.notes].sort((a, b) => (b.updated || '').localeCompare(a.updated || ''));
@@ -1690,6 +1811,29 @@ const ACT = {
   },
   'mx-wide': () => { ui.wideList = !ui.wideList; try { localStorage.setItem('planbuch-wide', ui.wideList ? '1' : ''); } catch (e) { } render(); },
   members: el => membersDrawer(el.dataset.c),
+  'kl-tab': el => { ui.klTab = el.dataset.k; render(); },
+  'kl-edit': el => { ui.view = 'schueler'; ui.classId = el.dataset.id; location.hash = 'schueler'; render(); },
+  'kl-print': () => { const cls = myClass(); $('#page-style').textContent = '@page{size:A4 portrait;margin:14mm}'; $('#print-area').innerHTML = printClassList(cls); setTimeout(() => window.print(), 50); },
+  'cl-new': el => {
+    const cls = myClass(); const t = el.dataset.t;
+    const cl = { id: uid(), classId: cls.id, type: t, title: CL_NEW[t], amount: null, due: null, note: '', created: new Date().toISOString(), archived: false, items: {} };
+    commit(() => D.checklists.push(cl)); ui.clId = cl.id; ui.klTab = 'listen'; ui.clOpenOnly = false; render();
+    setTimeout(() => { const i = $(`#clt-${cl.id}`); i?.focus(); i?.select(); }, 40);
+  },
+  'cl-pick': el => { ui.clId = el.dataset.id; ui.klTab = 'listen'; const cl = clById(el.dataset.id); if (cl?.archived) ui.clShowArch = true; render(); },
+  'cl-tog': el => commit(() => { const cl = clById(el.dataset.id); const it = (cl.items[el.dataset.s] ||= {}); it.done = !it.done; it.date = it.done ? todayIso() : null; }),
+  'cl-full': el => commit(() => { const cl = clById(el.dataset.id); const it = (cl.items[el.dataset.s] ||= {}); if (clState(cl, el.dataset.s) === 'done') { it.paid = null; it.date = null; } else { it.paid = cl.amount; it.date = todayIso(); } }),
+  'cl-na': el => commit(() => { const cl = clById(el.dataset.id); const it = (cl.items[el.dataset.s] ||= {}); it.na = !it.na; }),
+  'cl-allok': el => {
+    const cl = clById(el.dataset.id); const studs = studentsOf(classById(cl.classId)).filter(st => nkey(st).trim()); const rest = studs.filter(st => ['open', 'part'].includes(clState(cl, st.id)));
+    if (!rest.length) return toast('Es ist schon alles erledigt.');
+    confirmBox(cl.type === 'money' ? 'Alle übrigen als bezahlt eintragen?' : 'Alle übrigen abhaken?', `${rest.length} Kinder werden mit dem heutigen Datum eingetragen.`, 'Eintragen', () => commit(() => rest.forEach(st => { const it = (cl.items[st.id] ||= {}); if (cl.type === 'money') it.paid = cl.amount; else it.done = true; it.date = todayIso(); })));
+  },
+  'cl-openonly': el => { ui.clOpenOnly = el.checked; render(); },
+  'cl-showarch': () => { ui.clShowArch = !ui.clShowArch; render(); },
+  'cl-arch': el => { const cl = clById(el.dataset.id); commit(() => { cl.archived = !cl.archived; }); toast(cl.archived ? 'Ins Archiv verschoben' : 'Aus dem Archiv geholt'); },
+  'cl-del': el => { const cl = clById(el.dataset.id); confirmBox('Checkliste löschen?', `„${cl.title}“ und alle Einträge darin werden gelöscht. Tipp: Mit „Archivieren“ bleibt sie erhalten.`, 'Löschen', () => { commit(() => { D.checklists = D.checklists.filter(x => x !== cl); }); ui.clId = null; render(); }); },
+  'cl-print': el => { const cl = clById(el.dataset.id); $('#page-style').textContent = '@page{size:A4 portrait;margin:14mm}'; $('#print-area').innerHTML = printChecklist(cl); setTimeout(() => window.print(), 50); },
   'class-adopt': el => {
     const cls = classById(el.dataset.id); const cs = adoptCourses(cls);
     if (cs.length > 1) return popMenu(el, cs.map(c => `<button data-act="class-adopt-do" data-id="${cls.id}" data-c="${c.id}">${icon('people')}Aus ${esc(cname(c))} (${courseStudents(c).length})</button>`).join(''));
@@ -1820,6 +1964,10 @@ document.addEventListener('mousedown', ev => { if (ev.target.closest('[data-act=
 
 /* Eingaben: werden ohne neues Zeichnen übernommen, damit der Cursor bleibt */
 const BIND = {
+  clTitle: (el, v) => { clById(el.dataset.id).title = v; },
+  clNote: (el, v) => { clById(el.dataset.id).note = v; },
+  clAmount: (el, v) => { const cl = clById(el.dataset.id); cl.amount = parseEuro(v); setTimeout(() => clRefresh(cl), 0); },
+  clPaid: (el, v) => { const cl = clById(el.dataset.id); const it = (cl.items[el.dataset.s] ||= {}); it.paid = parseEuro(v); it.date = it.paid ? (it.date || todayIso()) : null; setTimeout(() => clRefresh(cl, el.dataset.s), 0); },
   lessonNote: (el, v) => { const c = courseById(el.dataset.c); if (v) c.lessonNotes[el.dataset.k] = v; else delete c.lessonNotes[el.dataset.k]; },
   weekNote: (el, v) => { if (v) D.weekNotes[el.dataset.k] = v; else delete D.weekNotes[el.dataset.k]; },
   entry: (el, v) => { const c = courseById(el.dataset.c); const e = ((c.entries[el.dataset.col] ||= {})[el.dataset.s] ||= {}); if (v) e[el.dataset.d] = v; else delete e[el.dataset.d]; },
@@ -1842,6 +1990,8 @@ const BIND = {
 };
 /* Auswahlfelder und Datumsfelder: übernehmen und neu zeichnen */
 const BIND_CHANGE = {
+  clDue: (el, v) => { clById(el.dataset.id).due = v || null; },
+  myClass: (el, v) => { D.myClass = v; ui.clId = null; },
   remDate: (el, v) => { D.reminders.find(x => x.id === el.dataset.id).date = v || null; },
   lessonUnit: el => { const c = courseById(el.dataset.c); const { u, l } = findLesson(c, el.dataset.l); const t = c.units.find(x => x.id === el.value); if (t && t !== u) { u.lessons = u.lessons.filter(x => x !== l); t.lessons.push(l); ui.openUnits[t.id] = true; } },
   optStyle: el => { courseById(el.dataset.c).columns.find(x => x.id === el.dataset.col).options.find(o => o.id === el.dataset.o).style = el.value; },
