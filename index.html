@@ -135,6 +135,9 @@ label.f > input,label.f > select,label.f > textarea{color:var(--ink);font-weight
 #swx table.st .nm{position:sticky;left:0;z-index:2;background:var(--surface);box-shadow:1px 0 0 var(--line)}
 #swx table.st thead .nm{z-index:3}
 #swx th.now,#swx td.now{background:var(--accent-bg)}
+.scroll-x table.st tr > :first-child{position:-webkit-sticky;position:sticky;left:0;z-index:2;background:var(--surface);box-shadow:1px 0 0 var(--line)}
+.scroll-x table.st thead tr > :first-child{z-index:3}
+.scroll-x table.st .nm .n{display:inline-block;min-width:20px;color:var(--faint);font-variant-numeric:tabular-nums;font-size:.8rem}
 #mx .nm .n{display:inline-block;min-width:20px;color:var(--faint);font-variant-numeric:tabular-nums;font-size:.8rem}
 table.st{border-collapse:separate;border-spacing:0;width:100%;font-size:.9rem}
 table.st th,table.st td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;white-space:nowrap}
@@ -1328,8 +1331,8 @@ function vKlasse() {
   if (tab === 'liste') {
     const cols = active;
     return head + `<div class="card"><div class="head" style="margin-bottom:10px"><h2>Schülerliste ${esc(cls.title)}</h2><div class="row"><button class="btn sm ghost" data-act="kl-edit" data-id="${cls.id}">${icon('edit')}Liste bearbeiten</button><button class="btn sm" data-act="kl-print">${icon('print')}Drucken</button></div></div>
-      ${studs.length ? `<div class="scroll-x"><table class="st"><thead><tr><th>Nr.</th><th>Name</th>${cols.map(cl => `<th class="cell" style="text-align:center"><span class="vth" title="${esc(cl.title)}">${esc(cl.title)}</span></th>`).join('')}<th>Offen</th></tr></thead><tbody>
-      ${studs.map((st, i) => { const open = cols.filter(cl => ['open', 'part'].includes(clState(cl, st.id))); return `<tr><td class="n">${esc(st.number || String(i + 1))}</td><td>${esc(st.last)}${st.first ? ', ' + esc(st.first) : ''}</td>${cols.map(cl => { const x = clState(cl, st.id); const it = cl.items[st.id] || {}; return `<td class="cell" style="text-align:center;cursor:pointer" data-act="cl-pick" data-id="${cl.id}" title="${esc(cl.title)}">${x === 'na' ? '<span class="sub">–</span>' : cl.type === 'money' ? (it.paid ? `<span class="st-pill st-${x}">${euroIn(it.paid)}</span>` : '<span class="st-pill st-open">✗</span>') : x === 'done' ? '<span class="st-pill st-done">✓</span>' : '<span class="st-pill st-open">✗</span>'}</td>`; }).join('')}<td>${open.length ? `<b style="color:var(--koralle-ink)">${open.length}</b>` : '<span class="sub">–</span>'}</td></tr>`; }).join('')}</tbody></table></div>`
+      ${studs.length ? `<div class="scroll-x"><table class="st"><thead><tr><th class="nm">Name</th>${cols.map(cl => `<th class="cell" style="text-align:center"><span class="vth" title="${esc(cl.title)}">${esc(cl.title)}</span></th>`).join('')}<th>Offen</th></tr></thead><tbody>
+      ${studs.map((st, i) => { const open = cols.filter(cl => ['open', 'part'].includes(clState(cl, st.id))); return `<tr><td class="nm"><span class="n">${esc(st.number || String(i + 1))}</span> ${esc(st.last)}${st.first ? ', ' + esc(st.first) : ''}</td>${cols.map(cl => { const x = clState(cl, st.id); const it = cl.items[st.id] || {}; return `<td class="cell" style="text-align:center;cursor:pointer" data-act="cl-pick" data-id="${cl.id}" title="${esc(cl.title)}">${x === 'na' ? '<span class="sub">–</span>' : cl.type === 'money' ? (it.paid ? `<span class="st-pill st-${x}">${euroIn(it.paid)}</span>` : '<span class="st-pill st-open">✗</span>') : x === 'done' ? '<span class="st-pill st-done">✓</span>' : '<span class="st-pill st-open">✗</span>'}</td>`; }).join('')}<td>${open.length ? `<b style="color:var(--koralle-ink)">${open.length}</b>` : '<span class="sub">–</span>'}</td></tr>`; }).join('')}</tbody></table></div>`
       : `<div class="empty">In ${esc(cls.title)} sind noch keine Kinder eingetragen.<br><button class="btn sm" style="margin-top:10px" data-act="kl-edit" data-id="${cls.id}">Schülerliste anlegen</button></div>`}
       ${cols.length ? '<div class="sub" style="margin-top:8px">Tippe auf ein Feld, um die Checkliste zu öffnen.</div>' : ''}</div>`;
   }
