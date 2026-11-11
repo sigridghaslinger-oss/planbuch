@@ -178,6 +178,8 @@ table.st td.cell{text-align:center;padding:3px;width:52px}
 .evt.supervision{background:var(--blau-bg);color:var(--blau-ink)}
 .evt.private{background:var(--rosa-bg);color:var(--rosa-ink)}
 .week .c .evt{padding:4px 6px}
+.week .evblock{margin:3px;align-self:stretch;width:auto;z-index:1;display:flex;flex-direction:column;justify-content:flex-start;gap:1px;padding:5px 7px;border-left:3px solid currentColor;overflow:hidden;font-size:.78rem}
+.week .evblock small{font-size:.7rem;opacity:.85;font-variant-numeric:tabular-nums}
 .week .add{border:1px dashed transparent;background:none;border-radius:6px;color:var(--faint);font-size:.8rem;min-height:22px;cursor:pointer;opacity:0;transition:opacity .15s}
 .week .c:hover .add,.week .ev:hover .add,.week .add:focus-visible{opacity:1;border-color:var(--line)}
 @media (hover:none){.week .add{opacity:.45}}
@@ -970,19 +972,36 @@ function vKalender() {
   const days = D.year.days.map(wd => addDays(ui.week, wd - 1));
   const vac = vacSet(); const t = todayIso();
   const occ = allOcc().filter(o => o.date >= ui.week && o.date <= addDays(ui.week, 6));
-  const cols = `grid-template-columns:62px repeat(${days.length},minmax(0,1fr))`;
-  let html = `<div class="week" style="${cols}"><div class="h"></div>${days.map(d => `<div class="h ${d === t ? 'today' : ''}">${WD[weekday(d)]} ${dm(d)}</div>`).join('')}`;
-  const inPeriod = e => e.type !== 'vacation' && e.startTime && e.startTime >= (D.periods[0]?.start || '') && D.periods.find(p => e.startTime < p.end)?.n;
+  // Termine mit Uhrzeit belegen alle Stunden von Beginn bis Ende und stehen neben dem Unterricht.
+  // Überschneiden sich Termine, bekommen sie nebeneinander eigene Spuren.
+  const P = D.periods, R0 = 3;
+  const pStart = tm => tm >= (P[0]?.start || '') ? P.findIndex(p => tm < p.end) : -1;
+  const pEnd = (tm, a) => { if (!tm) return a; let b = a; P.forEach((p, k) => { if (k >= a && p.start < tm) b = k; }); return b; };
+  const lanes = days.map(d => {
+    const items = eventsOn(d).filter(e => e.type !== 'vacation' && e.startTime && e.start === d && (!e.end || e.end === d) && pStart(e.startTime) >= 0)
+      .map(e => { const a = pStart(e.startTime); return { e, a, b: Math.max(a, pEnd(e.endTime, a)) }; }).sort((x, y) => x.a - y.a || y.b - x.b);
+    const ends = []; items.forEach(x => { let k = ends.findIndex(v => v < x.a); if (k < 0) { k = ends.length; ends.push(-1); } ends[k] = x.b; x.lane = k; });
+    return { items, n: ends.length, ids: new Set(items.map(x => x.e.id)) };
+  });
+  const cs = []; let colN = 2; days.forEach((d, i) => { cs.push(colN); colN += 1 + lanes[i].n; });
+  const tracks = days.map((d, i) => 'minmax(0,1fr)' + ' minmax(0,.85fr)'.repeat(lanes[i].n)).join(' ');
+  const extra = lanes.reduce((n, l) => n + l.n, 0);
+  const at = (r, c, span = 1, rspan = 1) => `grid-row:${r} / span ${rspan};grid-column:${c} / span ${span}`;
   const evBtn = (e, d) => `<button class="evt ${e.type}" data-act="event" data-id="${e.id}">${e.startTime && e.start === d ? e.startTime + ' ' : ''}${esc(e.title)}</button>`;
-  html += `<div class="p">Termine</div>${days.map(d => `<div class="ev">${eventsOn(d).filter(e => !(e.start === d && inPeriod(e))).map(e => evBtn(e, d)).join('')}<button class="add" data-act="event-new" data-d="${d}" aria-label="Ganztägigen Termin am ${dm(d)} anlegen">+ Termin</button></div>`).join('')}`;
-  D.periods.forEach(p => {
-    html += `<div class="p"><b>${p.n}</b>${p.start}</div>`;
-    days.forEach(d => {
+  let html = `<div class="week" style="grid-template-columns:62px ${tracks};min-width:${640 + extra * 110}px"><div class="h" style="${at(1, 1)}"></div>${days.map((d, i) => `<div class="h ${d === t ? 'today' : ''}" style="${at(1, cs[i], 1 + lanes[i].n)}">${WD[weekday(d)]} ${dm(d)}</div>`).join('')}`;
+  html += `<div class="p" style="${at(2, 1)}">Termine</div>${days.map((d, i) => `<div class="ev" style="${at(2, cs[i], 1 + lanes[i].n)}">${eventsOn(d).filter(e => !lanes[i].ids.has(e.id)).map(e => evBtn(e, d)).join('')}<button class="add" data-act="event-new" data-d="${d}" aria-label="Ganztägigen Termin am ${dm(d)} anlegen">+ Termin</button></div>`).join('')}`;
+  P.forEach((p, k) => {
+    const r = R0 + k;
+    html += `<div class="p" style="${at(r, 1)}"><b>${p.n}</b>${p.start}</div>`;
+    days.forEach((d, i) => {
       const here = occ.filter(o => o.date === d && periodOf(o.start) === p.n);
-      const evs = eventsOn(d).filter(e => e.start === d && inPeriod(e) === p.n);
-      html += `<div class="c ${vac.has(d) ? 'vac' : ''}">${here.map(o => lesChip(o)).join('')}${evs.map(e => evBtn(e, d)).join('')}<button class="add" data-act="event-new" data-d="${d}" data-st="${p.start}" data-et="${p.end}" aria-label="Termin am ${dm(d)} in der ${p.n}. Stunde anlegen">+</button></div>`;
+      html += `<div class="c ${vac.has(d) ? 'vac' : ''}" style="${at(r, cs[i])}">${here.map(o => lesChip(o)).join('')}<button class="add" data-act="event-new" data-d="${d}" data-st="${p.start}" data-et="${p.end}" aria-label="Termin am ${dm(d)} in der ${p.n}. Stunde anlegen">+</button></div>`;
+      for (let l = 0; l < lanes[i].n; l++) html += `<div class="c ${vac.has(d) ? 'vac' : ''}" style="${at(r, cs[i] + 1 + l)}"></div>`;
     });
   });
+  lanes.forEach((ln, i) => ln.items.forEach(x => {
+    html += `<button class="evt ${x.e.type} evblock" style="${at(R0 + x.a, cs[i] + 1 + x.lane, 1, x.b - x.a + 1)}" data-act="event" data-id="${x.e.id}" title="${esc(x.e.title)}"><small>${x.e.startTime}${x.e.endTime ? '–' + x.e.endTime : ''}</small><b style="font-weight:600">${esc(x.e.title)}</b>${x.e.note ? `<small>${esc(x.e.note.slice(0, 60))}</small>` : ''}</button>`;
+  }));
   html += '</div>';
   const wk = ui.week;
   const right = `<button class="btn sm primary" data-act="event-new" data-d="${days.includes(t) ? t : days[0]}">${icon('plus')}Termin</button><button class="btn icon" data-act="wk" data-n="-7" aria-label="Vorige Woche">${icon('left')}</button><button class="btn sm" data-act="wk-now">Diese Woche</button><button class="btn icon" data-act="wk" data-n="7" aria-label="Nächste Woche">${icon('right')}</button>`;
