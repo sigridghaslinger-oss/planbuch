@@ -1331,10 +1331,10 @@ function vKlasse() {
   if (tab === 'liste') {
     const cols = active;
     return head + `<div class="card"><div class="head" style="margin-bottom:10px"><h2>Schülerliste ${esc(cls.title)}</h2><div class="row"><button class="btn sm ghost" data-act="kl-edit" data-id="${cls.id}">${icon('edit')}Liste bearbeiten</button><button class="btn sm" data-act="kl-print">${icon('print')}Drucken</button></div></div>
-      ${studs.length ? `<div class="scroll-x"><table class="st"><thead><tr><th class="nm">Name</th>${cols.map(cl => `<th class="cell" style="text-align:center"><span class="vth" title="${esc(cl.title)}">${esc(cl.title)}</span></th>`).join('')}<th>Offen</th></tr></thead><tbody>
-      ${studs.map((st, i) => { const open = cols.filter(cl => ['open', 'part'].includes(clState(cl, st.id))); return `<tr><td class="nm"><span class="n">${esc(st.number || String(i + 1))}</span> ${esc(st.last)}${st.first ? ', ' + esc(st.first) : ''}</td>${cols.map(cl => { const x = clState(cl, st.id); const it = cl.items[st.id] || {}; return `<td class="cell" style="text-align:center;cursor:pointer" data-act="cl-pick" data-id="${cl.id}" title="${esc(cl.title)}">${x === 'na' ? '<span class="sub">–</span>' : cl.type === 'money' ? (it.paid ? `<span class="st-pill st-${x}">${euroIn(it.paid)}</span>` : '<span class="st-pill st-open">✗</span>') : x === 'done' ? '<span class="st-pill st-done">✓</span>' : '<span class="st-pill st-open">✗</span>'}</td>`; }).join('')}<td>${open.length ? `<b style="color:var(--koralle-ink)">${open.length}</b>` : '<span class="sub">–</span>'}</td></tr>`; }).join('')}</tbody></table></div>`
+      ${studs.length ? `<div class="scroll-x" id="klx" data-keepx><table class="st"><thead><tr><th class="nm">Name</th>${cols.map(cl => `<th class="cell" style="text-align:center;cursor:pointer" data-act="cl-pick" data-id="${cl.id}" title="${esc(cl.title)} öffnen"><span class="vth">${esc(cl.title)}${cl.type === 'money' && cl.amount ? ' · ' + euroIn(cl.amount) + ' €' : ''}</span></th>`).join('')}<th>Offen</th></tr></thead><tbody>
+      ${studs.map((st, i) => { const open = cols.filter(cl => ['open', 'part'].includes(clState(cl, st.id))); return `<tr><td class="nm"><span class="n">${esc(st.number || String(i + 1))}</span> ${esc(st.last)}${st.first ? ', ' + esc(st.first) : ''}</td>${cols.map(cl => { const x = clState(cl, st.id); const it = cl.items[st.id] || {}; const lab = x === 'na' ? '–' : cl.type === 'money' ? (it.paid ? euroIn(it.paid) : '') : x === 'done' ? '✓' : ''; return `<td class="cell" style="text-align:center"><button class="cl-mark ${x === 'done' ? 'on' : ''}" style="${cl.type === 'money' ? 'width:64px;font-size:.85rem;' : ''}${x === 'part' ? 'border-style:solid;border-color:var(--sonne);background:var(--sonne-bg);color:var(--sonne-ink);' : ''}${x === 'na' ? 'opacity:.45;' : ''}" data-act="cl-cell" data-id="${cl.id}" data-s="${st.id}" title="${esc(cl.title)}" aria-label="${esc(st.last)}: ${esc(cl.title)}">${lab}</button></td>`; }).join('')}<td>${open.length ? `<b style="color:var(--koralle-ink)">${open.length}</b>` : '<span class="sub">–</span>'}</td></tr>`; }).join('')}</tbody></table></div>`
       : `<div class="empty">In ${esc(cls.title)} sind noch keine Kinder eingetragen.<br><button class="btn sm" style="margin-top:10px" data-act="kl-edit" data-id="${cls.id}">Schülerliste anlegen</button></div>`}
-      ${cols.length ? '<div class="sub" style="margin-top:8px">Tippe auf ein Feld, um die Checkliste zu öffnen.</div>' : ''}</div>`;
+      ${cols.length ? '<div class="sub" style="margin-top:8px">Tippe auf ein Feld zum Abhaken, bei Geld wird der volle Betrag eingetragen. Nochmal tippen nimmt es wieder zurück. Tippe auf eine Überschrift, um die Checkliste zu öffnen, z. B. für Teilbeträge.</div>' : ''}</div>`;
   }
   const cl = clById(ui.clId) && clById(ui.clId).classId === cls.id ? clById(ui.clId) : active[0];
   const row = x => { const st = clStats(x, studs); return `<div class="d ${cl && x.id === cl.id ? 'cur' : ''}" style="grid-template-columns:1fr auto" data-act="cl-pick" data-id="${x.id}"><div class="t"><b style="font-weight:600">${esc(x.title || 'Ohne Titel')}</b><br><span class="sub">${CL_TYPES[x.type]}${x.due ? ' · bis ' + dm(x.due) : ''}</span></div><span class="pill" style="${st.done === st.total && st.total ? 'background:var(--mint-bg);color:var(--mint-ink)' : ''}">${st.done}/${st.total}</span></div>`; };
@@ -1850,6 +1850,16 @@ const ACT = {
     setTimeout(() => { const i = $(`#clt-${cl.id}`); i?.focus(); i?.select(); }, 40);
   },
   'cl-pick': el => { ui.clId = el.dataset.id; ui.klTab = 'listen'; const cl = clById(el.dataset.id); if (cl?.archived) ui.clShowArch = true; render(); },
+  'cl-cell': el => {
+    const cl = clById(el.dataset.id); const sid = el.dataset.s; const x = clState(cl, sid);
+    if (x === 'na') return toast('Betrifft dieses Kind nicht. Ändern kannst du das in der Checkliste.');
+    if (cl.type === 'money' && !cl.amount) { ui.clId = cl.id; ui.klTab = 'listen'; render(); return toast('Trage zuerst den Betrag pro Kind ein.'); }
+    commit(() => {
+      const it = (cl.items[sid] ||= {});
+      if (cl.type === 'money') { if (x === 'done') { it.paid = null; it.date = null; } else { it.paid = cl.amount; it.date = todayIso(); } }
+      else { it.done = !it.done; it.date = it.done ? todayIso() : null; }
+    });
+  },
   'cl-tog': el => commit(() => { const cl = clById(el.dataset.id); const it = (cl.items[el.dataset.s] ||= {}); it.done = !it.done; it.date = it.done ? todayIso() : null; }),
   'cl-full': el => commit(() => { const cl = clById(el.dataset.id); const it = (cl.items[el.dataset.s] ||= {}); if (clState(cl, el.dataset.s) === 'done') { it.paid = null; it.date = null; } else { it.paid = cl.amount; it.date = todayIso(); } }),
   'cl-na': el => commit(() => { const cl = clById(el.dataset.id); const it = (cl.items[el.dataset.s] ||= {}); it.na = !it.na; }),
