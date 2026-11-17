@@ -103,6 +103,11 @@ label.f > input,label.f > select,label.f > textarea{color:var(--ink);font-weight
 .rte{line-height:1.5;font-size:.93rem}
 .rte p{margin:0 0 6px}.rte ul,.rte ol{margin:0 0 6px;padding-left:20px}
 .rte:empty::before{content:attr(data-ph);color:var(--faint)}
+.rte a{color:var(--blau-ink);text-decoration:underline;text-underline-offset:2px;cursor:pointer;word-break:break-word}
+.rte a[href*="sharepoint.com"]::before,.rte a[href*="1drv.ms"]::before,.rte a[href*="onedrive"]::before{content:'☁ ';text-decoration:none;display:inline-block;margin-right:2px}
+#linkbox{position:fixed;inset:0;z-index:70;background:rgba(47,49,73,.3);display:flex;align-items:center;justify-content:center;padding:16px}
+#linkbox form{width:min(480px,100%);display:grid;gap:12px;max-height:90vh;overflow:auto}
+#linkbox ol{margin:0;padding-left:20px;font-size:.88rem;color:var(--muted);display:grid;gap:3px}
 [contenteditable]{outline:none;border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:8px 10px;min-height:60px;background:var(--surface)}
 [contenteditable]:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
 .kicker{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--muted)}
@@ -384,6 +389,56 @@ const EVENT_TYPES = { school: 'Schultermin', supervision: 'Aufsicht', consultati
 const MARK_STYLES = { good: 'Grün', mid: 'Gelb', bad: 'Koralle', info: 'Blau', lila: 'Lila', grey: 'Grau' };
 const stripHtml = h => { const t = document.createElement('div'); t.innerHTML = h || ''; return t.textContent.trim(); };
 
+/* ---------- Links in Inhalt, Material und Hausübung ---------- */
+const isOneDrive = u => /sharepoint\.com|1drv\.ms|onedrive\./i.test(u);
+const linkLabel = u => { try { const x = new URL(u); if (isOneDrive(u)) return 'OneDrive-Datei'; const t = x.hostname.replace(/^www\./, '') + x.pathname.replace(/\/$/, ''); return t.length > 42 ? t.slice(0, 40) + '…' : t; } catch (e) { return u; } };
+function insertLink(rte, range, url, text) {
+  rte.focus();
+  const sel = getSelection();
+  if (range && rte.contains(range.commonAncestorContainer)) { sel.removeAllRanges(); sel.addRange(range); }
+  else { const r = document.createRange(); r.selectNodeContents(rte); r.collapse(false); sel.removeAllRanges(); sel.addRange(r); }
+  const a = `<a href="${esc(url)}">${esc(text || linkLabel(url))}</a>&nbsp;`;
+  if (!document.execCommand('insertHTML', false, a)) { rte.insertAdjacentHTML('beforeend', a); }
+  rte.dispatchEvent(new Event('input', { bubbles: true }));
+}
+function linkDialog(rte, od) {
+  const sel = getSelection(); const range = sel.rangeCount && rte.contains(sel.getRangeAt(0).commonAncestorContainer) ? sel.getRangeAt(0).cloneRange() : null;
+  const picked = range ? range.toString().trim() : '';
+  $('#linkbox')?.remove();
+  const box = document.createElement('div'); box.id = 'linkbox';
+  box.innerHTML = `<form class="card" autocomplete="off">
+    <h2 style="margin:0">${od ? '☁ Material aus OneDrive verlinken' : '🔗 Link einfügen'}</h2>
+    ${od ? `<ol><li>Öffne die Datei in <b>OneDrive</b>: am Mac im Finder unter „OneDrive – MS Pregarten“, am iPad in der OneDrive-App oder im Browser.</li>
+      <li>Wähle <b>„Teilen“</b> bzw. <b>„Link kopieren“</b>. Am Mac: Rechtsklick auf die Datei → OneDrive → Link kopieren.</li>
+      <li>Füge den Link unten ein und gib ihm einen Namen, z. B. „Arbeitsblatt Diagramme“.</li></ol>
+      <div><a class="btn sm" href="https://www.microsoft365.com/onedrive" target="_blank" rel="noopener">☁ OneDrive im Browser öffnen</a></div>` : ''}
+    <label class="f">Link (Adresse)<input type="text" id="lk-url" inputmode="url" placeholder="https://…" autocapitalize="off" spellcheck="false"></label>
+    <label class="f">Angezeigter Name (optional)<input type="text" id="lk-text" value="${esc(picked)}" placeholder="${od ? 'z. B. Arbeitsblatt Diagramme' : 'z. B. Lernvideo zum Thema'}"></label>
+    <p class="err" style="margin:0;color:var(--koralle-ink);font-weight:600;font-size:.9rem;min-height:1.2em"></p>
+    <div class="row" style="justify-content:flex-end;gap:6px"><button type="button" class="btn ghost" data-x="cancel">Abbrechen</button><button class="btn primary">Einfügen</button></div>
+  </form>`;
+  document.body.append(box);
+  setTimeout(() => $('#lk-url')?.focus(), 50);
+  box.addEventListener('click', ev => { if (ev.target === box || ev.target.closest('[data-x=cancel]')) box.remove(); });
+  box.querySelector('form').addEventListener('submit', ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    let url = $('#lk-url').value.trim(); const text = $('#lk-text').value.trim();
+    if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url.replace(/^\/+/, '');
+    try { new URL(url); } catch (e) { url = ''; }
+    if (!url) { box.querySelector('.err').textContent = 'Bitte einen gültigen Link einfügen, z. B. https://…'; return; }
+    box.remove(); insertLink(rte, range, url, text); toast('Link eingefügt');
+  });
+}
+// Links im Bearbeitungsfeld öffnen sich beim Antippen in einem neuen Tab
+document.addEventListener('click', ev => { const a = ev.target.closest('[data-rte][contenteditable] a[href]'); if (a) { ev.preventDefault(); window.open(a.href, '_blank', 'noopener'); } }, true);
+// Wird eine Adresse eingefügt, wird daraus gleich ein Link
+document.addEventListener('paste', ev => {
+  const rte = ev.target.closest?.('[data-rte][contenteditable]'); if (!rte) return;
+  const t = (ev.clipboardData?.getData('text/plain') || '').trim();
+  if (!/^https?:\/\/\S+$/i.test(t)) return;
+  ev.preventDefault(); const sel = getSelection(); const picked = sel.rangeCount ? sel.toString().trim() : '';
+  insertLink(rte, sel.rangeCount ? sel.getRangeAt(0) : null, t, picked);
+});
 function sanitize(html) {
   const t = document.createElement('template');
   t.innerHTML = html || '';
@@ -1125,7 +1180,7 @@ function lessonRow(c, u, l, i) {
   return h;
 }
 function lessonEditor(c, u, l) {
-  const tb = f => `<div class="row" style="gap:4px;margin-bottom:4px"><span class="field-title" style="flex:1">${f}</span><button class="btn sm ghost" data-act="fmt" data-cmd="bold" aria-label="fett"><b>F</b></button><button class="btn sm ghost" data-act="fmt" data-cmd="insertUnorderedList" aria-label="Aufzählung">• Liste</button></div>`;
+  const tb = f => `<div class="row" style="gap:4px;margin-bottom:4px"><span class="field-title" style="flex:1">${f}</span><button class="btn sm ghost" data-act="fmt" data-cmd="bold" aria-label="fett"><b>F</b></button><button class="btn sm ghost" data-act="fmt" data-cmd="insertUnorderedList" aria-label="Aufzählung">• Liste</button><button class="btn sm ghost" data-act="link-add" title="Link einfügen">🔗 Link</button><button class="btn sm ghost" data-act="link-add" data-od="1" title="Datei aus OneDrive verlinken">☁ OneDrive</button></div>`;
   return `<label class="f">Titel<input type="text" id="lt-${l.id}" value="${esc(l.title)}" data-bind="lessonTitle" data-c="${c.id}" data-l="${l.id}"></label>
     <div>${tb('Inhalt')}<div contenteditable="true" class="rte" data-rte data-html="${esc(l.content)}" data-bind="lessonHtml" data-f="content" data-c="${c.id}" data-l="${l.id}" data-ph="Was passiert in dieser Stunde?"></div></div>
     <div>${tb('Material')}<div contenteditable="true" class="rte" data-rte data-html="${esc(l.material)}" data-bind="lessonHtml" data-f="material" data-c="${c.id}" data-l="${l.id}" data-ph="Arbeitsblätter, Buchseiten, Links …"></div></div>
@@ -1997,6 +2052,7 @@ const ACT = {
   'lesson-move': el => commit(() => { const c = courseById(el.dataset.c); const { u, l } = findLesson(c, el.dataset.l); const i = u.lessons.indexOf(l); const j = i + +el.dataset.n; if (j >= 0 && j < u.lessons.length) moveIn(u.lessons, l, +el.dataset.n); else { const ui2 = c.units.indexOf(u) + +el.dataset.n; const t = c.units[ui2]; if (t) { u.lessons.splice(i, 1); if (+el.dataset.n < 0) t.lessons.push(l); else t.lessons.unshift(l); ui.openUnits[t.id] = true; } } }),
   'lesson-del': el => { const c = courseById(el.dataset.c); const { u, l } = findLesson(c, el.dataset.l); confirmBox('Stunde löschen?', `„${l.title || 'Ohne Titel'}“ wird gelöscht. Die folgenden Stunden rücken nach vorne.`, 'Löschen', () => { commit(() => { u.lessons = u.lessons.filter(x => x !== l); }); closeLayer(); render(); }); },
   len: el => commit(() => { const { l } = findLesson(courseById(el.dataset.c), el.dataset.l); l.length = Math.max(1, Math.min(10, (l.length || 1) + +el.dataset.n)); }),
+  'link-add': el => { const rte = el.closest('.row')?.nextElementSibling; if (rte?.matches('[data-rte]')) linkDialog(rte, !!el.dataset.od); },
   fmt: (el, ev) => { ev.preventDefault(); document.execCommand(el.dataset.cmd, false, null); },
   kid: el => { ui.kidKey = el.dataset.k; render(); },
   'kid-print': () => { const ch = allChildren().find(k => k.key === ui.kidKey); if (!ch) return; $('#page-style').textContent = '@page{size:A4 portrait;margin:14mm}'; $('#print-area').innerHTML = printChildren([ch]); setTimeout(() => window.print(), 50); },
@@ -2055,7 +2111,7 @@ document.addEventListener('click', ev => {
   if (el.tagName === 'BUTTON' && el.closest('form') && el.type !== 'button') return;
   f(el, ev);
 });
-document.addEventListener('mousedown', ev => { if (ev.target.closest('[data-act="fmt"]')) ev.preventDefault(); });
+document.addEventListener('mousedown', ev => { if (ev.target.closest('[data-act="fmt"],[data-act="link-add"]')) ev.preventDefault(); });
 
 /* Eingaben: werden ohne neues Zeichnen übernommen, damit der Cursor bleibt */
 const BIND = {
