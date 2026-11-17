@@ -198,6 +198,13 @@ table.st td.cell{text-align:center;padding:3px;width:52px}
 .dist .d{display:grid;grid-template-columns:62px 1fr auto;gap:8px;align-items:center;padding:6px 8px;border-radius:8px;font-size:.85rem;cursor:pointer}
 .dist .d:hover{background:var(--soft)}
 .dist .d.cur{background:var(--accent-bg)}
+.dist .d.today{box-shadow:inset 3px 0 0 var(--koralle);background:var(--koralle-bg)}
+.dist .d.today.cur{background:var(--accent-bg)}
+.dist .todayline{display:flex;align-items:center;gap:8px;margin:6px 4px;color:var(--koralle-ink);font-size:.75rem;font-weight:700}
+.dist .todayline::before,.dist .todayline::after{content:'';flex:1;border-top:2px solid var(--koralle)}
+.pill.heute{background:var(--koralle-bg);color:var(--koralle-ink)}
+.lrow.hi{background:var(--accent-bg);box-shadow:inset 4px 0 0 var(--accent)}
+@media (prefers-reduced-motion:no-preference){.lrow.flash{animation:hiflash 1.4s ease-out}@keyframes hiflash{0%{background:var(--accent)}100%{background:var(--accent-bg)}}}
 .dist .d .dt{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.8rem;line-height:1.2}
 .dist .d .dt b{color:var(--ink);font-weight:700}
 .dist .d.cancel{color:var(--faint);text-decoration:line-through}
@@ -774,10 +781,13 @@ function render() {
   renderSide();
   const m = $('#main'); const st = m.scrollTop;
   const keepX = Object.fromEntries($$('[data-keepx]').map(el => [el.id, el.scrollLeft]));
+  const keepY = Object.fromEntries($$('[data-keepy]').map(el => [el.id, el.scrollTop]));
   const views = { klasse: vKlasse, heute: vHeute, kalender: vKalender, unterricht: vUnterricht, schueler: vSchueler, noten: vNoten, kinder: vKinder, notizen: vNotizen, erinnerungen: vErinnerungen, drucken: vDrucken, einstellungen: vEinstellungen };
   m.innerHTML = `<div class="page">${(views[ui.view] || vHeute)()}</div>`;
   m.scrollTop = st;
   $$('[data-keepx]').forEach(el => { if (keepX[el.id]) el.scrollLeft = keepX[el.id]; });
+  $$('[data-keepy]').forEach(el => { if (keepY[el.id]) el.scrollTop = keepY[el.id]; });
+  const dl = $('#dist'); if (dl && ui.distAt !== ui.courseId) { ui.distAt = ui.courseId; const td = $('#dist-today'); if (td) dl.scrollTop = Math.max(0, td.offsetTop - dl.offsetTop - 60); }
   afterRender();
 }
 function mxHint() {
@@ -1041,23 +1051,28 @@ function vUnterricht() {
   const chips = `<div class="chips">${courses.map(x => `<button class="chip c-${x.color} ${x.id === c.id ? '' : 'off'}" data-act="pick-course" data-c="${x.id}"><i></i>${esc(cname(x))}</button>`).join('')}</div>`;
   const doneCount = c.units.reduce((n, u) => n + u.lessons.filter(l => l.done).reduce((m, l) => m + (l.length || 1), 0), 0);
   const t = todayIso();
-  let lastMonth = '';
+  let lastMonth = '', todayDone = false;
+  const sel = ui.hiLesson || ui.openLesson;
   const dist = pl.occ.map(o => {
     const mo = o.date.slice(0, 7); let sep = '';
     if (mo !== lastMonth) { lastMonth = mo; sep = `<div class="sep">${MON[parse(o.date).getMonth()]} ${parse(o.date).getFullYear()}</div>`; }
-    const cur = ui.openLesson && o.lesson?.id === ui.openLesson ? 'cur' : '';
+    // Heute: Stunden von heute markieren, sonst eine Linie vor der nächsten Stunde
+    let anchor = '';
+    if (!todayDone && o.date >= t) { todayDone = true; if (o.date > t) sep += `<div class="todayline" id="dist-today">Heute, ${WD[weekday(t)]} ${dm(t)}</div>`; else anchor = 'id="dist-today"'; }
+    const isToday = o.date === t;
+    const cur = sel && o.lesson?.id === sel ? 'cur' : '';
     const past = o.date < t ? 'style="opacity:.75"' : '';
-    return sep + `<div class="d ${o.cancelled ? 'cancel' : ''} ${o.lesson ? '' : 'free'} ${o.lesson?.buffer ? 'buffer' : ''} ${cur}" ${past} data-act="occ" data-c="${c.id}" data-k="${o.key}"><div class="dt"><b>${WD[weekday(o.date)]} ${dm(o.date)}</b><br>${periodOf(o.start) || o.start}. Std</div><div class="t">${o.cancelled ? 'entfällt' : o.lesson ? esc(o.lesson.title || 'Ohne Titel') + (o.lesson.length > 1 ? ` <span class="pill">${o.part}/${o.lesson.length}</span>` : '') : 'frei'}</div><div>${o.lesson?.done ? '<span class="check on" style="width:16px;height:16px"></span>' : ''}</div></div>`;
+    return sep + `<div class="d ${o.cancelled ? 'cancel' : ''} ${o.lesson ? '' : 'free'} ${o.lesson?.buffer ? 'buffer' : ''} ${cur} ${isToday ? 'today' : ''}" ${anchor} ${past} data-act="${o.lesson && !o.cancelled ? 'dist-pick' : 'occ'}" data-c="${c.id}" data-k="${o.key}" title="${o.lesson && !o.cancelled ? 'In den Sequenzen zeigen' : ''}"><div class="dt"><b>${isToday ? 'Heute' : WD[weekday(o.date)] + ' ' + dm(o.date)}</b><br>${periodOf(o.start) || o.start}. Std</div><div class="t">${o.cancelled ? 'entfällt' : o.lesson ? esc(o.lesson.title || 'Ohne Titel') + (o.lesson.length > 1 ? ` <span class="pill">${o.part}/${o.lesson.length}</span>` : '') : 'frei'}</div><div>${o.lesson?.done ? '<span class="check on" style="width:16px;height:16px"></span>' : ''}</div></div>`;
   }).join('');
   const units = c.units.map((u, ui_) => unitHtml(c, u, ui_)).join('');
   const overflow = pl.planned - pl.available;
-  return pageHead('Unterricht', 'Stoffverteilung', chips) + `
+  return pageHead('Unterricht', `Stoffverteilung · heute ${WD[weekday(t)]} ${dmy(t)}`, chips) + `
   <div class="card c-${c.color}"><div class="row" style="justify-content:space-between">
     <div class="stat"><span><b>${pl.planned}</b> Stunden geplant</span><span><b>${pl.available}</b> Stunden im Kalender</span><span><b>${doneCount}</b> erledigt</span></div>
     <div class="bar" style="max-width:320px"><i style="width:${pl.planned ? Math.round(doneCount / pl.planned * 100) : 0}%"></i></div>
   </div>${overflow > 0 ? `<div class="sub" style="margin-top:8px;color:var(--koralle-ink)">Es sind ${overflow} Stunden mehr geplant, als bis Schulschluss im Kalender stehen.</div>` : ''}${!c.slots.length ? `<div class="sub" style="margin-top:8px">Für diesen Kurs ist noch kein Stundenplan eingetragen. Die Termine erscheinen, sobald du unter „Einstellungen → Kurse“ die Stunden anlegst.</div>` : ''}</div>
   <div class="plan">
-    <div class="card" style="padding:8px"><div class="field-title" style="padding:6px 8px">Termine</div><div class="dist" id="dist">${dist || '<div class="empty">Keine Termine</div>'}</div></div>
+    <div class="card" style="padding:8px"><div class="field-title" style="padding:6px 8px">Termine</div><div class="dist" id="dist" data-keepy>${dist || '<div class="empty">Keine Termine</div>'}</div></div>
     <div><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>Sequenzen und Stunden</h2><div class="row"><button class="btn sm ghost" data-act="units-toggle" data-c="${c.id}">Alle auf-/zuklappen</button><button class="btn sm primary" data-act="unit-add" data-c="${c.id}">${icon('plus')}Sequenz</button></div></div>
     ${ui.clip && !ui.moving ? `<div class="movebar" style="background:var(--lila-bg);color:var(--lila-ink)">${icon('copy')}<span style="flex:1">„${esc(ui.clip.lesson.title || 'Ohne Titel')}“ aus ${esc(ui.clip.from)} ist kopiert. Wähle oben das Fach und füge sie über „⋯“ bei einer Stunde oder am Ende einer Sequenz ein.</span><button class="btn sm" data-act="clip-clear">Fertig</button></div>` : ''}
     ${ui.moving ? `<div class="movebar">${icon('grip')}<span style="flex:1">„${esc(findLesson(c, ui.moving.l).l?.title || 'Ohne Titel')}“ verschieben: Tippe auf „Hierher“ an der neuen Stelle.</span><button class="btn sm" data-act="move-cancel">Abbrechen</button></div>` : ''}
@@ -1094,8 +1109,9 @@ function lessonRow(c, u, l, i) {
   const when = occ.length ? occ.map(o => `${WD[weekday(o.date)]} ${dm(o.date)}`).join(', ') : 'kein Termin mehr frei';
   const open = ui.openLesson === l.id;
   const mv = ui.moving?.l === l.id;
-  let h = `<div class="lrow ${open ? 'open' : ''} ${l.buffer ? 'buffer' : ''} ${mv ? 'moving' : ''}" data-l="${l.id}" id="row-${l.id}"><button class="drag" data-c="${c.id}" data-l="${l.id}" title="Ziehen zum Verschieben" aria-label="Stunde ziehen">${icon('grip')}</button><button class="check ${l.done ? 'on' : ''}" data-act="done" data-c="${c.id}" data-l="${l.id}" aria-label="erledigt"></button>
-    <div class="lt" data-act="lesson-toggle" data-l="${l.id}"><b>${esc(l.title || 'Ohne Titel')}</b><small>${when}${l.content ? ' · ' + esc(stripHtml(l.content).slice(0, 70)) : ''}</small></div>
+  const tdy = occ.some(o => o.date === todayIso());
+  let h = `<div class="lrow ${open ? 'open' : ''} ${l.buffer ? 'buffer' : ''} ${mv ? 'moving' : ''} ${ui.hiLesson === l.id ? 'hi' : ''} ${ui.hiFlash === l.id ? 'flash' : ''}" data-l="${l.id}" id="row-${l.id}"><button class="drag" data-c="${c.id}" data-l="${l.id}" title="Ziehen zum Verschieben" aria-label="Stunde ziehen">${icon('grip')}</button><button class="check ${l.done ? 'on' : ''}" data-act="done" data-c="${c.id}" data-l="${l.id}" aria-label="erledigt"></button>
+    <div class="lt" data-act="lesson-toggle" data-l="${l.id}"><b>${tdy ? '<span class="pill heute">heute</span> ' : ''}${esc(l.title || 'Ohne Titel')}</b><small>${when}${l.content ? ' · ' + esc(stripHtml(l.content).slice(0, 70)) : ''}</small></div>
     <div class="row" style="gap:4px"><span class="len"><button data-act="len" data-c="${c.id}" data-l="${l.id}" data-n="-1" aria-label="kürzer">−</button>${l.length || 1}&nbsp;Std<button data-act="len" data-c="${c.id}" data-l="${l.id}" data-n="1" aria-label="länger">+</button></span>
     <button class="btn sm" data-act="lmenu" data-c="${c.id}" data-l="${l.id}" aria-label="Aktionen für diese Stunde" title="Bearbeiten, verschieben, einfügen …">${icon('more')}</button></div></div>`;
   if (open) {
@@ -1963,6 +1979,11 @@ const ACT = {
     render();
   },
   'lesson-step': el => { const c = courseById(ui.courseId); const all = c.units.flatMap(x => x.lessons); const k = all.findIndex(l => l.id === ui.openLesson); const n = all[k + +el.dataset.n]; if (n) { openLessonEditor(c, n); render(); setTimeout(() => $(`#row-${n.id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 30); } },
+  'dist-pick': el => {
+    const c = courseById(el.dataset.c); const o = planOf(c).byKey[el.dataset.k]; if (!o?.lesson) return occDrawer(c.id, el.dataset.k);
+    ui.hiLesson = ui.hiFlash = o.lesson.id; ui.openUnits[o.unit.id] = true; render(); ui.hiFlash = null;
+    setTimeout(() => $(`#row-${o.lesson.id}`)?.scrollIntoView({ block: 'center' }), 30);
+  },
   'lesson-insert': el => { const c = courseById(el.dataset.c); const { u, l } = findLesson(c, el.dataset.l); const n = newLesson(); const before = el.dataset.pos === 'before'; commit(() => { u.lessons.splice(u.lessons.indexOf(l) + (before ? 0 : 1), 0, n); openLessonEditor(c, n, true); }); focusLesson(n.id); toast('Neue Stunde eingeschoben. Die folgenden Stunden rücken nach.'); },
   
   'occ-insert': el => {
@@ -1972,7 +1993,7 @@ const ACT = {
     refreshDrawer(); setTimeout(() => { const i = $(`#lt-${n.id}`); i?.focus(); }, 40);
     toast(after ? 'Neue Stunde nach dieser Doppelstunde eingeschoben. Alles Weitere rückt nach.' : 'Neue Stunde eingeschoben. Alles Weitere rückt nach.');
   },
-  'lesson-toggle': el => { if (ui.openLesson === el.dataset.l) { ui.openLesson = null; ui.editSnap = null; } else { const c = courseById(ui.courseId); const f = findLesson(c, el.dataset.l); if (f.l) openLessonEditor(c, f.l); } render(); if (ui.openLesson) setTimeout(() => $(`#row-${ui.openLesson}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 30); },
+  'lesson-toggle': el => { ui.hiLesson = el.dataset.l; if (ui.openLesson === el.dataset.l) { ui.openLesson = null; ui.editSnap = null; } else { const c = courseById(ui.courseId); const f = findLesson(c, el.dataset.l); if (f.l) openLessonEditor(c, f.l); } render(); if (ui.openLesson) setTimeout(() => $(`#row-${ui.openLesson}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 30); },
   'lesson-move': el => commit(() => { const c = courseById(el.dataset.c); const { u, l } = findLesson(c, el.dataset.l); const i = u.lessons.indexOf(l); const j = i + +el.dataset.n; if (j >= 0 && j < u.lessons.length) moveIn(u.lessons, l, +el.dataset.n); else { const ui2 = c.units.indexOf(u) + +el.dataset.n; const t = c.units[ui2]; if (t) { u.lessons.splice(i, 1); if (+el.dataset.n < 0) t.lessons.push(l); else t.lessons.unshift(l); ui.openUnits[t.id] = true; } } }),
   'lesson-del': el => { const c = courseById(el.dataset.c); const { u, l } = findLesson(c, el.dataset.l); confirmBox('Stunde löschen?', `„${l.title || 'Ohne Titel'}“ wird gelöscht. Die folgenden Stunden rücken nach vorne.`, 'Löschen', () => { commit(() => { u.lessons = u.lessons.filter(x => x !== l); }); closeLayer(); render(); }); },
   len: el => commit(() => { const { l } = findLesson(courseById(el.dataset.c), el.dataset.l); l.length = Math.max(1, Math.min(10, (l.length || 1) + +el.dataset.n)); }),
