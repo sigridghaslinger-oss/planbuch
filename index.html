@@ -688,29 +688,34 @@ async function saveFile() {
   const json = fileCache.json;
   const done = how => { meta.fileSavedAt = new Date().toISOString(); persist(); renderSide(); toast(how); };
   // 1) Chrome/Edge am Mac: einmal Datei im OneDrive-Ordner wählen, danach direkt speichern
+  let fail = '';
   if (window.showSaveFilePicker) {
+    const write = async h => { const w = await h.createWritable({ keepExistingData: false }); await w.write(json); await w.close(); };
+    const pick = async () => { const h = await window.showSaveFilePicker({ suggestedName: FILE_NAME, types: [{ description: 'Planbuch-Daten', accept: { 'application/json': ['.json'] } }] }); await idb.set('fileHandle', h).catch(() => { }); return h; };
+    let h = await idb.get('fileHandle').catch(() => null);
     try {
-      let h = await idb.get('fileHandle').catch(() => null);
-      if (h && (await h.queryPermission({ mode: 'readwrite' })) !== 'granted') {
-        if ((await h.requestPermission({ mode: 'readwrite' })) !== 'granted') h = null;
+      if (h && (await h.queryPermission({ mode: 'readwrite' })) !== 'granted' && (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') h = null;
+    } catch (e) { h = null; }
+    try {
+      if (h) {
+        // Gemerkte Datei kann ungültig sein, z. B. wenn OneDrive sie ersetzt hat: dann neu auswählen lassen
+        try { await write(h); meta.fileName = h.name; return done(`Gesichert in „${h.name}“`); }
+        catch (e) { if (e.name === 'AbortError') return; fail = e.name || 'Fehler'; await idb.del('fileHandle').catch(() => { }); toast('Die gemerkte Datei ist nicht mehr erreichbar. Bitte wähle Planbuch-Daten.json im OneDrive-Ordner noch einmal aus.'); }
       }
-      if (!h) {
-        h = await window.showSaveFilePicker({ suggestedName: FILE_NAME, types: [{ description: 'Planbuch-Daten', accept: { 'application/json': ['.json'] } }] });
-        await idb.set('fileHandle', h).catch(() => { });
-      }
-      const w = await h.createWritable(); await w.write(json); await w.close();
-      meta.fileName = h.name; return done(`Gesichert in „${h.name}“`);
-    } catch (e) { if (e.name === 'AbortError') return; }
+      h = await pick();
+      await write(h); meta.fileName = h.name; return done(`Gesichert in „${h.name}“`);
+    } catch (e) { if (e.name === 'AbortError') return; fail = e.name || e.message || 'Fehler'; }
   }
   const file = new File([json], FILE_NAME, { type: 'application/json' });
   // 2) iPad/iPhone: Teilen-Menü → „In Dateien sichern“ → OneDrive
   if (navigator.canShare && navigator.canShare({ files: [file] }) && /iPad|iPhone|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document) {
-    try { await navigator.share({ files: [file], title: 'Planbuch-Daten' }); return done('Datei übergeben. Wähle „In Dateien sichern“ → OneDrive.'); }
+    try { await navigator.share({ files: [file] }); return done('Datei übergeben. Wähle „In Dateien sichern“ → OneDrive → „Ersetzen“.'); }
     catch (e) { if (e.name === 'AbortError') return; if (e.name === 'NotAllowedError') return toast('Bitte noch einmal auf „Sichern“ tippen.'); }
   }
   // 3) Sonst: Datei herunterladen
   const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = FILE_NAME;
   document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  if (fail) { renderSide(); return confirmBox('Direkt in OneDrive sichern hat nicht geklappt', `Die Datei wurde stattdessen in „Downloads“ gespeichert. Ziehe sie in den OneDrive-Ordner „Planbuch“ und ersetze die alte Datei. (Grund: ${fail})`, 'OK', () => done('Bitte die Datei aus „Downloads“ nach OneDrive ziehen.')); }
   done('Datei gespeichert. Lege sie in deinen OneDrive-Ordner.');
 }
 function openFile() { const f = $('#file-in'); f.value = ''; f.click(); }
@@ -746,9 +751,15 @@ function vacSet() {
   memo.vac = s; return s;
 }
 function periodOf(t) { const p = D.periods.find(p => p.start === t) || D.periods.find(p => t >= p.start && t < p.end); return p ? p.n : null; }
+// Einzeltermine nach Datum zusammengefasst, z. B. „Mo 19.10. · 7.–8. Std“
+function extraDays(c) {
+  const m = {}; (c.extra || []).forEach(x => (m[x.date] ||= []).push(x));
+  return Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).map(([date, xs]) => ({ date, ps: xs.map(x => periodOf(x.start)).filter(Boolean).sort((a, b) => a - b) }));
+}
+const psTxt = ps => !ps.length ? '' : ps.length > 1 && ps.at(-1) - ps[0] === ps.length - 1 ? `${ps[0]}.–${ps.at(-1)}. Std` : ps.map(n => n + '.').join(', ') + ' Std';
 function occurrences(course) {
   const out = []; const y = D.year; const vac = vacSet(); const canc = new Set(course.cancelled);
-  const slots = [...course.slots].sort((a, b) => a.start.localeCompare(b.start));
+  const slots = course.irregular ? [] : [...course.slots].sort((a, b) => a.start.localeCompare(b.start));
   if (!slots.length && !(course.extra || []).length) return out;
   for (let d = y.start; d <= y.end; d = addDays(d, 1)) {
     const wd = weekday(d);
@@ -1076,7 +1087,7 @@ function vKalender() {
     <div style="display:grid;gap:16px">
       <div class="card">${miniMonth(ui.miniMonth || wk)}</div>
       <div class="card"><div class="field-title" style="margin-bottom:6px">Wochennotiz</div><textarea id="wn-${noteKey}" data-bind="weekNote" data-k="${noteKey}" placeholder="Was steht diese Woche an?">${esc(D.weekNotes[noteKey] || '')}</textarea></div>
-      <div class="card"><div class="field-title" style="margin-bottom:6px">Legende</div><div class="chips">${D.courses.filter(c => c.slots.length).map(c => `<span class="chip c-${c.color}" data-act="go-plan" data-c="${c.id}"><i></i>${esc(cname(c))}</span>`).join('')}</div></div>
+      <div class="card"><div class="field-title" style="margin-bottom:6px">Legende</div><div class="chips">${D.courses.filter(c => c.slots.length || c.extra.length).map(c => `<span class="chip c-${c.color}" data-act="go-plan" data-c="${c.id}"><i></i>${esc(cname(c))}</span>`).join('')}</div></div>
     </div></div>`;
 }
 function lesChip(o) {
@@ -1125,7 +1136,7 @@ function vUnterricht() {
   <div class="card c-${c.color}"><div class="row" style="justify-content:space-between">
     <div class="stat"><span><b>${pl.planned}</b> Stunden geplant</span><span><b>${pl.available}</b> Stunden im Kalender</span><span><b>${doneCount}</b> erledigt</span></div>
     <div class="bar" style="max-width:320px"><i style="width:${pl.planned ? Math.round(doneCount / pl.planned * 100) : 0}%"></i></div>
-  </div>${overflow > 0 ? `<div class="sub" style="margin-top:8px;color:var(--koralle-ink)">Es sind ${overflow} Stunden mehr geplant, als bis Schulschluss im Kalender stehen.</div>` : ''}${!c.slots.length ? `<div class="sub" style="margin-top:8px">Für diesen Kurs ist noch kein Stundenplan eingetragen. Die Termine erscheinen, sobald du unter „Einstellungen → Kurse“ die Stunden anlegst.</div>` : ''}</div>
+  </div>${overflow > 0 ? `<div class="sub" style="margin-top:8px;color:var(--koralle-ink)">Es sind ${overflow} Stunden mehr geplant, als bis Schulschluss im Kalender stehen.</div>` : ''}${!(c.irregular ? c.extra.length : c.slots.length + c.extra.length) ? `<div class="sub" style="margin-top:8px">Für diesen Kurs sind noch keine Termine eingetragen. Sie erscheinen, sobald du unter „Einstellungen → Kurse“ den Stundenplan oder einzelne Termine anlegst.</div>` : ''}</div>
   <div class="plan">
     <div class="card" style="padding:8px"><div class="field-title" style="padding:6px 8px">Termine</div><div class="dist" id="dist" data-keepy>${dist || '<div class="empty">Keine Termine</div>'}</div></div>
     <div><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2>Sequenzen und Stunden</h2><div class="row"><button class="btn sm ghost" data-act="units-toggle" data-c="${c.id}">Alle auf-/zuklappen</button><button class="btn sm primary" data-act="unit-add" data-c="${c.id}">${icon('plus')}Sequenz</button></div></div>
@@ -1659,9 +1670,20 @@ function vEinstellungen() {
   }
   return pageHead('Einstellungen', '', tabs) + body;
 }
+function slotsHtml(c) {
+  return `      <div style="display:grid;gap:8px">${c.slots.map((s, i) => `<div class="row" style="gap:6px">
+        <select data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="weekday" aria-label="Wochentag">${D.year.days.map(d => `<option value="${d}" ${d === s.weekday ? 'selected' : ''}>${WDL[d]}</option>`).join('')}</select>
+        <select data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="period" aria-label="Stunde">${D.periods.map(p => `<option value="${p.n}" ${p.start === s.start ? 'selected' : ''}>${p.n}. Std (${p.start})</option>`).join('')}</select>
+        <select data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="every" aria-label="Rhythmus"><option value="1" ${(s.every || 1) === 1 ? 'selected' : ''}>jede Woche</option><option value="2" ${s.every === 2 ? 'selected' : ''}>alle 2 Wochen</option></select>
+        <span class="sub">ab</span><input type="date" id="sf-${c.id}-${i}" value="${s.from || D.year.start}" data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="from" aria-label="ab">
+        <span class="sub">bis</span><input type="date" id="su-${c.id}-${i}" value="${s.until || ''}" data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="until" aria-label="bis (leer = Schulschluss)">
+        <input type="text" id="sr-${c.id}-${i}" style="width:90px" placeholder="Raum" value="${esc(s.room || '')}" data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="room" aria-label="Raum">
+        <button class="btn icon ghost" data-act="slot-del" data-c="${c.id}" data-i="${i}" aria-label="entfernen">${icon('trash')}</button></div>`).join('')}</div>
+      <button class="btn sm" style="margin-top:8px" data-act="slot-add" data-c="${c.id}">${icon('plus')}Stunde im Stundenplan</button>`;
+}
 function courseCard(c) {
   const open = ui.openCourse === c.id;
-  const slotTxt = c.slots.map(s => `${WD[s.weekday]} ${periodOf(s.start) || s.start}.`).join(', ') || 'kein Stundenplan';
+  const slotTxt = c.irregular ? `${extraDays(c).length} Einzeltermine` : c.slots.map(s => `${WD[s.weekday]} ${periodOf(s.start) || s.start}.`).join(', ') || 'kein Stundenplan';
   if (!open) return `<div class="card c-${c.color} row" style="cursor:pointer" data-act="course-open" data-c="${c.id}"><span class="chip c-${c.color}"><i></i>${esc(cname(c))}</span><span>${esc(c.subject)}</span><span class="sub">${slotTxt}</span><span style="flex:1"></span>${icon('right', '')}</div>`;
   return `<div class="card c-${c.color}" style="display:grid;gap:14px">
     <div class="row" style="justify-content:space-between"><span class="chip c-${c.color}"><i></i>${esc(cname(c))}</span><button class="btn sm ghost" data-act="course-open" data-c="">Schließen</button></div>
@@ -1672,19 +1694,16 @@ function courseCard(c) {
     </div>
     <div class="row" style="justify-content:space-between;background:var(--soft);border-radius:10px;padding:10px 12px"><div><div class="field-title">Schülerinnen und Schüler</div><div>${membersSummary(c)}</div></div><button class="btn sm" data-act="members" data-c="${c.id}">${icon('people')}Auswählen</button></div>
     <div><div class="field-title">Farbe</div><div class="chips">${COLORS.map(k => `<button class="chip c-${k} ${k === c.color ? '' : 'off'}" data-act="course-color" data-c="${c.id}" data-k="${k}"><i></i>${COLOR_NAMES[k]}</button>`).join('')}</div></div>
-    <div><div class="field-title" style="margin-bottom:6px">Stundenplan</div>
-      <div style="display:grid;gap:8px">${c.slots.map((s, i) => `<div class="row" style="gap:6px">
-        <select data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="weekday" aria-label="Wochentag">${D.year.days.map(d => `<option value="${d}" ${d === s.weekday ? 'selected' : ''}>${WDL[d]}</option>`).join('')}</select>
-        <select data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="period" aria-label="Stunde">${D.periods.map(p => `<option value="${p.n}" ${p.start === s.start ? 'selected' : ''}>${p.n}. Std (${p.start})</option>`).join('')}</select>
-        <select data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="every" aria-label="Rhythmus"><option value="1" ${(s.every || 1) === 1 ? 'selected' : ''}>jede Woche</option><option value="2" ${s.every === 2 ? 'selected' : ''}>alle 2 Wochen</option></select>
-        <span class="sub">ab</span><input type="date" id="sf-${c.id}-${i}" value="${s.from || D.year.start}" data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="from" aria-label="ab">
-        <span class="sub">bis</span><input type="date" id="su-${c.id}-${i}" value="${s.until || ''}" data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="until" aria-label="bis (leer = Schulschluss)">
-        <input type="text" id="sr-${c.id}-${i}" style="width:90px" placeholder="Raum" value="${esc(s.room || '')}" data-bind="slot" data-c="${c.id}" data-i="${i}" data-f="room" aria-label="Raum">
-        <button class="btn icon ghost" data-act="slot-del" data-c="${c.id}" data-i="${i}" aria-label="entfernen">${icon('trash')}</button></div>`).join('')}</div>
-      <button class="btn sm" style="margin-top:8px" data-act="slot-add" data-c="${c.id}">${icon('plus')}Stunde im Stundenplan</button></div>
-    <div><div class="field-title" style="margin-bottom:6px">Zusätzliche Einzelstunden</div>
-      <div class="chips">${c.extra.map((x, i) => `<button class="chip c-${c.color}" data-act="extra-del" data-c="${c.id}" data-i="${i}" title="Entfernen">${WD[weekday(x.date)]} ${dm(x.date)} ${x.start} ✕</button>`).join('') || '<span class="sub">keine</span>'}</div>
-      <form class="row" style="margin-top:8px" data-form="extra" data-c="${c.id}"><input type="date" id="xd-${c.id}" required><select id="xp-${c.id}" aria-label="Stunde">${D.periods.map(p => `<option value="${p.n}">${p.n}. Std (${p.start})</option>`).join('')}</select><button class="btn sm">${icon('plus')}Einzelstunde</button></form></div>
+    <div><div class="row" style="justify-content:space-between;gap:8px;margin-bottom:8px"><div class="field-title">Stundenplan</div>
+      <div class="seg">${[[0, 'Regelmäßig jede Woche'], [1, 'Nur einzelne Termine']].map(([v, t]) => `<button class="${!!c.irregular === !!v ? 'on' : ''}" data-act="course-irregular" data-c="${c.id}" data-v="${v}">${t}</button>`).join('')}</div></div>
+      ${c.irregular ? '<div class="sub">Dieser Kurs hat keine regelmäßigen Stunden. Trage die Termine unten einzeln ein, Doppelstunden mit „von … bis“.</div>' : slotsHtml(c)}</div>
+    <div><div class="field-title" style="margin-bottom:6px">${c.irregular ? 'Termine' : 'Zusätzliche Einzeltermine'} ${extraDays(c).length ? `<span class="sub" style="text-transform:none;letter-spacing:0">· ${extraDays(c).length} Termine, ${c.extra.length} Stunden</span>` : ''}</div>
+      <form class="row" style="gap:6px;flex-wrap:wrap;align-items:end;background:var(--soft);border-radius:10px;padding:10px" data-form="extra" data-c="${c.id}">
+        <label class="f" style="flex:1;min-width:150px">Datum<input type="date" id="xd-${c.id}" required></label>
+        <label class="f">von<select id="xp-${c.id}" aria-label="von Stunde">${D.periods.map(p => `<option value="${p.n}" ${(ui.xp?.[c.id]?.from ?? 1) === p.n ? 'selected' : ''}>${p.n}. Std (${p.start})</option>`).join('')}</select></label>
+        <label class="f">bis<select id="xq-${c.id}" aria-label="bis Stunde">${D.periods.map(p => `<option value="${p.n}" ${(ui.xp?.[c.id]?.to ?? 2) === p.n ? 'selected' : ''}>${p.n}. Std (bis ${p.end})</option>`).join('')}</select></label>
+        <button class="btn sm primary">${icon('plus')}Termin</button></form>
+      <div class="chips" style="margin-top:8px">${extraDays(c).map(x => `<button class="chip c-${c.color}" style="${x.date < todayIso() ? 'opacity:.6' : ''}" data-act="extra-del-day" data-c="${c.id}" data-d="${x.date}" title="Termin entfernen">${WD[weekday(x.date)]} ${dm(x.date)} · ${psTxt(x.ps)} ✕</button>`).join('') || '<span class="sub">noch keine</span>'}</div></div>
     ${c.cancelled.length ? `<div><div class="field-title">Entfallene Stunden</div><div class="chips">${c.cancelled.slice().sort().map(k => `<button class="chip c-grau" data-act="uncancel" data-c="${c.id}" data-k="${k}" title="Wieder einplanen">${WD[weekday(k.slice(0, 10))]} ${dm(k.slice(0, 10))} ${k.slice(11)} ✕</button>`).join('')}</div></div>` : ''}
     <div><button class="btn sm ghost" style="color:var(--koralle-ink)" data-act="course-del" data-c="${c.id}">${icon('trash')}Kurs löschen</button></div></div>`;
 }
@@ -2095,6 +2114,15 @@ const ACT = {
   'course-del': el => { const c = courseById(el.dataset.c); confirmBox('Kurs löschen?', `${cname(c)} mit Stoffplan und allen Einträgen wird gelöscht. Mit „Rückgängig“ holst du ihn zurück.`, 'Löschen', () => commit(() => { D.courses = D.courses.filter(x => x !== c); })); },
   'slot-add': el => commit(() => { const p = D.periods[0]; courseById(el.dataset.c).slots.push({ weekday: D.year.days[0], start: p.start, end: p.end, room: '', from: D.year.start, every: 1 }); }),
   'slot-del': el => commit(() => { courseById(el.dataset.c).slots.splice(+el.dataset.i, 1); }),
+  'extra-del-day': el => commit(() => { const c = courseById(el.dataset.c); c.extra = c.extra.filter(x => x.date !== el.dataset.d); }),
+  'course-irregular': el => {
+    const c = courseById(el.dataset.c); const on = el.dataset.v === '1'; if (!!c.irregular === on) return;
+    if (!on) { commit(() => { c.irregular = false; }); return; }
+    // Bisher gehaltene regelmäßige Stunden als Einzeltermine behalten, damit die Stoffverteilung nicht verrutscht
+    const past = occurrences(c).filter(o => !o.extra && o.date <= todayIso());
+    commit(() => { past.forEach(o => { if (!c.extra.some(x => x.date === o.date && x.start === o.start)) c.extra.push({ date: o.date, start: o.start, end: o.end, room: o.room }); }); c.irregular = true; });
+    toast(past.length ? `Umgestellt. ${past.length} bisherige Stunden bleiben als Einzeltermine erhalten.` : 'Umgestellt auf einzelne Termine.');
+  },
   'extra-del': el => commit(() => { courseById(el.dataset.c).extra.splice(+el.dataset.i, 1); }),
   'forget-file': async () => { await idb.del('fileHandle').catch(() => { }); toast('Beim nächsten Sichern wählst du den Speicherort neu.'); },
   wipe: () => confirmBox('Alle Daten auf diesem Gerät löschen?', 'Die App ist danach leer. Deine Datei auf OneDrive bleibt erhalten und du kannst sie wieder laden.', 'Löschen', async () => { await idb.del('data').catch(() => { }); await idb.del('meta').catch(() => { }); try { localStorage.removeItem('planbuch-data'); localStorage.removeItem('planbuch-meta'); } catch (e) { } leaving = true; location.reload(); }),
@@ -2191,7 +2219,15 @@ document.addEventListener('submit', ev => {
   const k = fm.dataset.form;
   if (k === 'rem') { const t = $('#rem-new').value.trim(); if (!t) return; commit(() => D.reminders.push({ id: uid(), text: t, date: $('#rem-new-date').value || null, done: false })); }
   if (k === 'hw') { const c = courseById(fm.dataset.c); const key = fm.dataset.k; const text = fm.querySelector('textarea').value.trim(); const due = fm.querySelector('input[type=date]').value; if (!text || !due) return; commit(() => { hwColumn(c, true); c.homework.push({ id: uid(), text, given: key, due, results: {} }); if (ui.hwDue) delete ui.hwDue[key]; if (ui.hwText) delete ui.hwText[key]; }); refreshDrawer(); toast('Hausübung aufgegeben'); }
-  if (k === 'extra') { const c = courseById(fm.dataset.c); const d = $(`#xd-${c.id}`).value; const p = D.periods.find(p => p.n === +$(`#xp-${c.id}`).value); if (!d || !p) return; commit(() => c.extra.push({ date: d, start: p.start, end: p.end })); }
+  if (k === 'extra') {
+    const c = courseById(fm.dataset.c); const d = $(`#xd-${c.id}`).value; let a = +$(`#xp-${c.id}`).value, b = +$(`#xq-${c.id}`).value; if (!d) return;
+    if (b < a) [a, b] = [b, a];
+    (ui.xp ||= {})[c.id] = { from: a, to: b };
+    const ps = D.periods.filter(p => p.n >= a && p.n <= b);
+    commit(() => ps.forEach(p => { if (!c.extra.some(x => x.date === d && x.start === p.start)) c.extra.push({ date: d, start: p.start, end: p.end }); }));
+    toast(`${WD[weekday(d)]} ${dm(d)}: ${ps.length > 1 ? `${a}.–${b}. Stunde` : `${a}. Stunde`} eingetragen`);
+    setTimeout(() => $(`#xd-${c.id}`)?.focus(), 30);
+  }
   if (k === 'class') { const t = $('#class-new').value.trim(); if (!t) return; commit(() => D.classes.push({ id: uid(), title: t, grade: '', students: [] })); }
   if (k === 'event') {
     const fd = Object.fromEntries(new FormData(fm)); const id = fm.dataset.id;
