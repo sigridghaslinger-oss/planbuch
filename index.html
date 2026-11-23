@@ -383,6 +383,9 @@ const dmy = s => { const d = parse(s); return `${d.getDate()}.${d.getMonth() + 1
 const longDate = s => `${WDL[weekday(s)]}, ${parse(s).getDate()}. ${MON[parse(s).getMonth()]}`;
 const kw = s => { const d = parse(s); d.setDate(d.getDate() + 4 - (d.getDay() || 7)); const y = new Date(d.getFullYear(), 0, 1); return Math.ceil(((d - y) / 864e5 + 1) / 7); };
 const weeksBetween = (a, b) => Math.round((parse(b) - parse(a)) / (7 * 864e5));
+// Schulwoche: ab der Woche des Schulbeginns durchgezählt, Ferienwochen zählen mit
+const schulwoche = s => { const n = weeksBetween(monday(D.year.start), monday(s)) + 1; return n >= 1 && s <= D.year.end ? n : null; };
+const swLabel = s => { const n = schulwoche(s); return n ? `${n}. Schulwoche` : `KW ${kw(s)}`; };
 const COLORS = ['tuerkis', 'koralle', 'lila', 'mint', 'rosa', 'blau', 'pfirsich', 'sonne', 'sand', 'grau'];
 const COLOR_NAMES = { tuerkis: 'Türkis', koralle: 'Koralle', lila: 'Lila', mint: 'Mint', rosa: 'Rosa', blau: 'Blau', pfirsich: 'Pfirsich', sonne: 'Sonne', sand: 'Sand', grau: 'Grau' };
 const EVENT_TYPES = { school: 'Schultermin', supervision: 'Aufsicht', consultation: 'Sprechstunde', private: 'Privat', other: 'Sonstiges', vacation: 'Ferien / schulfrei' };
@@ -910,7 +913,7 @@ function vHeute() {
       <td class="cell"><button class="mark ${aLab ? 'set m-' + aLab[1] : ''}" style="width:58px;font-size:.75rem" data-act="att" data-c="${c.id}" data-s="${s.id}" data-d="${o.date}">${aLab ? aLab[0] : ''}</button></td>
       ${cols.map(col => cellHtml(c, col, s, o.date)).join('')}</tr>`;
     }).join('')}</tbody></table></div></div>` : `<div class="empty">In diesem Fach sind noch keine Schülerinnen und Schüler.<br><div class="row" style="justify-content:center;margin-top:10px"><button class="btn sm primary" data-act="members" data-c="${c.id}">Schüler zum Fach hinzufügen</button><button class="btn sm" data-act="go" data-v="schueler">Schülerliste anlegen</button></div></div>`;
-  return pageHead('Heute', longDate(todayIso()), right) + `
+  return pageHead('Heute', `${longDate(todayIso())} · ${swLabel(todayIso())}`, right) + `
   <div class="card c-${c.color}"><div class="lessonhead">
     <span class="bigchip">${esc(cname(c))}</span>
     <span class="time">${o.date === todayIso() ? 'Heute' : longDate(o.date)} · ${p ? p + '. Stunde · ' : ''}${o.start}–${o.end}${o.room ? ' · ' + esc(o.room) : ''}</span>
@@ -1093,7 +1096,7 @@ function vKalender() {
   const wk = ui.week;
   const right = `<button class="btn sm primary" data-act="event-new" data-d="${days.includes(t) ? t : days[0]}">${icon('plus')}Termin</button><button class="btn icon" data-act="wk" data-n="-7" aria-label="Vorige Woche">${icon('left')}</button><button class="btn sm" data-act="wk-now">Diese Woche</button><button class="btn icon" data-act="wk" data-n="7" aria-label="Nächste Woche">${icon('right')}</button>`;
   const noteKey = wk;
-  return pageHead('Kalender', `KW ${kw(wk)} · ${dm(wk)}–${dmy(addDays(wk, 4))}`, right) + `
+  return pageHead('Kalender', `${swLabel(wk)}${vacSet().has(wk) && vacSet().has(addDays(wk, 4)) ? ' (Ferien)' : ''} · ${dm(wk)}–${dmy(addDays(wk, 4))}`, right) + `
   <div class="cal-wrap"><div class="scroll-x">${html}</div>
     <div style="display:grid;gap:16px">
       <div class="card">${miniMonth(ui.miniMonth || wk)}</div>
@@ -1607,7 +1610,7 @@ function printWeek() {
   const P = ui.print; const wk = monday(P.week || todayIso());
   const days = D.year.days.map(w => addDays(wk, w - 1)); const vac = vacSet();
   const occ = allOcc().filter(o => o.date >= wk && o.date <= addDays(wk, 6));
-  let h = `<div class="ph"><div><h2>Wochenplan KW ${kw(wk)}</h2><div style="font-size:10pt;color:#555">${dmy(wk)} – ${dmy(addDays(wk, 4))}</div></div><div class="meta">${esc(D.year.title)}</div></div>`;
+  let h = `<div class="ph"><div><h2>Wochenplan · ${swLabel(wk)}</h2><div style="font-size:10pt;color:#555">${dmy(wk)} – ${dmy(addDays(wk, 4))}</div></div><div class="meta">${esc(D.year.title)}</div></div>`;
   h += `<table class="pt wp"><thead><tr><th class="pp">Std.</th>${days.map(d => `<th>${WDL[weekday(d)]} ${dm(d)}</th>`).join('')}</tr></thead><tbody>`;
   h += `<tr><td class="pp">Termine</td>${days.map(d => `<td>${eventsOn(d).map(e => `<div>${e.startTime && e.start === d ? e.startTime + ' ' : ''}${esc(e.title)}</div>`).join('')}</td>`).join('')}</tr>`;
   D.periods.forEach(p => {
