@@ -682,27 +682,38 @@ function normalize(d) {
 /* ---------- OneDrive: Sichern und Laden ---------- */
 const FILE_NAME = 'Planbuch-Daten.json';
 async function saveFile() {
+  try { await saveFileInner(); }
+  catch (e) { confirmBox('Sichern hat nicht geklappt', `Es ist ein Fehler aufgetreten (${esc(e.name || '')}: ${esc(e.message || String(e))}). Deine Daten bleiben auf diesem Gerät gespeichert. Schick mir bitte diese Meldung.`, 'OK', () => { }); }
+}
+async function saveFileInner() {
   if (!D) return;
   if (!vault.key) return needPassword();
+  toast('Wird gesichert …');
   if (fileCache.v !== version || saveTimer) await flushPersist();
   const json = fileCache.json;
+  if (!json) throw new Error('Die Daten konnten nicht vorbereitet werden.');
   const done = how => { meta.fileSavedAt = new Date().toISOString(); persist(); renderSide(); toast(how); };
   // 1) Chrome/Edge am Mac: einmal Datei im OneDrive-Ordner wählen, danach direkt speichern
   let fail = '';
   if (window.showSaveFilePicker) {
     const write = async h => { const w = await h.createWritable({ keepExistingData: false }); await w.write(json); await w.close(); };
-    const pick = async () => { const h = await window.showSaveFilePicker({ suggestedName: FILE_NAME, types: [{ description: 'Planbuch-Daten', accept: { 'application/json': ['.json'] } }] }); await idb.set('fileHandle', h).catch(() => { }); return h; };
-    let h = await idb.get('fileHandle').catch(() => null);
-    try {
-      if (h && (await h.queryPermission({ mode: 'readwrite' })) !== 'granted' && (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') h = null;
-    } catch (e) { h = null; }
+    const opts = { suggestedName: FILE_NAME, types: [{ description: 'Planbuch-Daten', accept: { 'application/json': ['.json'] } }] };
+    const pick = async start => {
+      let h;
+      try { h = await window.showSaveFilePicker(start ? { ...opts, startIn: start } : opts); }
+      catch (e) { if (e.name !== 'TypeError' || !start) throw e; h = await window.showSaveFilePicker(opts); }
+      await idb.set('fileHandle', h).catch(() => { }); return h;
+    };
+    let h = await idb.get('fileHandle').catch(() => null), last = h;
+    try { if (h && (await h.queryPermission({ mode: 'readwrite' })) !== 'granted') h = null; } catch (e) { h = last = null; }
     try {
       if (h) {
         // Gemerkte Datei kann ungültig sein, z. B. wenn OneDrive sie ersetzt hat: dann neu auswählen lassen
         try { await write(h); meta.fileName = h.name; return done(`Gesichert in „${h.name}“`); }
         catch (e) { if (e.name === 'AbortError') return; fail = e.name || 'Fehler'; await idb.del('fileHandle').catch(() => { }); toast('Die gemerkte Datei ist nicht mehr erreichbar. Bitte wähle Planbuch-Daten.json im OneDrive-Ordner noch einmal aus.'); }
       }
-      h = await pick();
+      if (last && !h) toast('Bitte bestätige im Fenster: Planbuch-Daten.json im OneDrive-Ordner „Planbuch“ → Sichern → Ersetzen.');
+      h = await pick(last);
       await write(h); meta.fileName = h.name; return done(`Gesichert in „${h.name}“`);
     } catch (e) { if (e.name === 'AbortError') return; fail = e.name || e.message || 'Fehler'; }
   }
